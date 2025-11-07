@@ -33,7 +33,7 @@ GO
 
 ------------------ CREACION DE ESQUEMAS ------------------
 
--- Incluye Edificio, UnidadFuncional
+-- Incluye UnidadFuncional
 IF SCHEMA_ID('Infraestructura') IS NULL
 BEGIN
     EXEC('CREATE SCHEMA Infraestructura');
@@ -79,17 +79,19 @@ END
 
 ------------------ CREACION DE TABLAS ------------------
 
--- Incluye Edificio, UnidadFuncional
-IF OBJECT_ID('Infraestructura.Edificio', 'U') IS NULL
+-- Incluye Consorcio
+IF OBJECT_ID('Administracion.Consorcio', 'U') IS NULL
 BEGIN
-    CREATE TABLE Infraestructura.Edificio(
-        id INT IDENTITY(1,1),
+    CREATE TABLE Administracion.Consorcio(
+        id INT IDENTITY(1, 1),
+        nombre VARCHAR(100) NOT NULL,
         direccion VARCHAR(100) NOT NULL,
         metrosTotales DECIMAL(8,2) NOT NULL,
-        CONSTRAINT pk_Edificio PRIMARY KEY (id)
+        CONSTRAINT pk_Consorcio PRIMARY KEY (id)
     )
 END
 
+-- Incluye UnidadFuncional
 IF OBJECT_ID('Infraestructura.UnidadFuncional', 'U') IS NULL
 BEGIN
     CREATE TABLE Infraestructura.UnidadFuncional(
@@ -101,23 +103,10 @@ BEGIN
         m2Baulera DECIMAL(5,2),
         porcentajeParticipacion DECIMAL(4,2) NOT NULL CHECK (porcentajeParticipacion > 0 AND porcentajeParticipacion <= 100),
         cbu_cvu CHAR(22) NOT NULL UNIQUE CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
-        idEdificio INT,
+        idConsorcio INT,
         CONSTRAINT pk_UF PRIMARY KEY (id),
-        CONSTRAINT fk_UF_Edificio FOREIGN KEY (idEdificio) REFERENCES Infraestructura.Edificio(id),
-        CONSTRAINT uq_UF_EdifPisoDpto UNIQUE (idEdificio, piso, departamento)
-    )
-END
-
--- Incluye Consorcio
-IF OBJECT_ID('Administracion.Consorcio', 'U') IS NULL
-BEGIN
-    CREATE TABLE Administracion.Consorcio(
-        id INT IDENTITY(1,1),
-        nombre VARCHAR(100) NOT NULL,
-        idEdificio INT,
-        CONSTRAINT pk_Consorcio PRIMARY KEY (id),
-        CONSTRAINT fk_Consorcio_Edificio FOREIGN KEY (idEdificio) REFERENCES Infraestructura.Edificio(id),
-        CONSTRAINT uq_Consorcio_IdEdificio UNIQUE (idEdificio)
+        CONSTRAINT fk_UF_Consorcio FOREIGN KEY (idConsorcio) REFERENCES Administracion.Consorcio(id),
+        CONSTRAINT uq_UF_EdifPisoDpto UNIQUE (idConsorcio, piso, departamento)
     )
 END
 
