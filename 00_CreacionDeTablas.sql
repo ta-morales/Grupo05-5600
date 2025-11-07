@@ -142,7 +142,7 @@ IF NOT EXISTS (
 BEGIN
     CREATE UNIQUE INDEX UX_Persona_EmailTrim
     ON Personas.Persona(email_trim)
-    WHERE email_trim IS NOT NULL;
+    WHERE email IS NOT NULL;
 END;
 
 IF OBJECT_ID('Personas.PersonaEnUF', 'U') IS NULL
