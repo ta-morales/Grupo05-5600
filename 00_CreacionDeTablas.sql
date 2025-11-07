@@ -71,6 +71,11 @@ BEGIN
 	EXEC('CREATE SCHEMA LogicaNormalizacion');
 END
 
+IF SCHEMA_ID('LogicaBD') IS NULL
+BEGIN
+	EXEC('CREATE SCHEMA LogicaBD');
+END
+
 
 ------------------ CREACION DE TABLAS ------------------
 

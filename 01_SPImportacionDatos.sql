@@ -254,12 +254,12 @@ BEGIN
 
     DROP TABLE #auxiliarGastos
 END
-
+GO
 
 /* PROCEDURES IMPORTACION DE DATOS */
 
 /* PROCEDURE PARA IMPORTAR E INSERTAR CONSORCIOS */
-CREATE OR ALTER PROCEDURE Infraestructura.sp_InsertarEnConsorcio 
+CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarEnConsorcio 
 @direccion VARCHAR(100),
 @nombre VARCHAR(100)
 AS
@@ -281,11 +281,11 @@ GO
 /* --------------------------------------------- */
 
 /* PROCEDURE PARA IMPORTAR E INSERTAR EDIFCIOS Y CONSORCIOS */
-CREATE OR ALTER PROCEDURE sp_ImportarConsorciosYEdificios
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarConsorciosYEdificios
 AS
 BEGIN
 	SET NOCOUNT ON;
-    INSERT INTO Infraestructura.Edificio (direccion, metrosTotales) VALUES
+    INSERT INTO LogicaBD.Edificio (direccion, metrosTotales) VALUES
         ('Belgrano 3344', 1281),
         ('Callao 1122', 914),
         ('Santa Fe 910', 784),
@@ -294,21 +294,21 @@ BEGIN
 
     PRINT 'Edificios Insertados'
     
-    EXEC sp_InsertarEnConsorcio @direccion='Belgrano 3344', @nombre='Azcuenaga'
-    EXEC sp_InsertarEnConsorcio @direccion='Callao 1122', @nombre='Alzaga'
-    EXEC sp_InsertarEnConsorcio @direccion='Santa Fe 910', @nombre='Alberdi'
-    EXEC sp_InsertarEnConsorcio @direccion='Corrientes 5678', @nombre='Unzue'
-    EXEC sp_InsertarEnConsorcio @direccion='Rivadavia 1234', @nombre='Pereyra Iraola'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Belgrano 3344', @nombre='Azcuenaga'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Callao 1122', @nombre='Alzaga'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Santa Fe 910', @nombre='Alberdi'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Corrientes 5678', @nombre='Unzue'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Rivadavia 1234', @nombre='Pereyra Iraola'
 END
 GO
 
-EXEC sp_ImportarConsorciosYEdificios
+EXEC LogicaBD.sp_ImportarConsorciosYEdificios
 GO
 /* --------------------------------------------- */
 
 
 /* PROCEDURE PARA IMPORTAR E INSERTAR EN TABLA TEMPORAL AUXILIAR DATOS DE INIQUILINOS/PROPIETARIOS Y SUS UFs*/
-CREATE OR ALTER PROCEDURE sp_ImportarInquilinosPropietarios
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarInquilinosPropietarios
 @rutaArchivoInquilinosPropietarios VARCHAR(100),
 @nombreArchivoInquilinosPropietarios VARCHAR(100)
 AS
@@ -362,7 +362,7 @@ BEGIN
 END
 GO
 
-EXEC sp_ImportarInquilinosPropietarios 
+EXEC LogicaBD.sp_ImportarInquilinosPropietarios 
     @rutaArchivoInquilinosPropietarios = 'H:\Users\Morrones\Downloads\consorcios', 
     @nombreArchivoInquilinosPropietarios='Inquilino-propietarios-UF.csv'
 GO
@@ -370,7 +370,7 @@ GO
 
 
 /* PROCEDURE PARA IMPORTAR E INSERTAR DATOS DE UNIDADES FUNCIONAES */
-CREATE OR ALTER PROCEDURE sp_InsertarUnidadesFuncionales
+CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarUnidadesFuncionales
 @nombreRuta VARCHAR(100),
 @nombreArchivo VARCHAR(100)
 AS
@@ -460,7 +460,7 @@ BEGIN
 END
 GO
 
-EXEC sp_InsertarUnidadesFuncionales
+EXEC LogicaBD.sp_InsertarUnidadesFuncionales
     @nombreRuta = 'H:\Users\Morrones\Downloads\consorcios',
     @nombreArchivo = 'UF por consorcio.txt'
 GO
@@ -468,7 +468,7 @@ GO
 
 
 /* PROCEDURE PARA IMPORTAR E INSERTAR DATOS DE PERSONAS */
-CREATE OR ALTER PROCEDURE sp_ImportarDatosInquilinos
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarDatosInquilinos
 @nombreArchivo VARCHAR(100),
 @rutaArchivo VARCHAR(100)
 AS
@@ -612,7 +612,7 @@ BEGIN
 END
 GO
 
-EXEC sp_ImportarDatosInquilinos 
+EXEC LogicaBD.sp_ImportarDatosInquilinos 
     @nombreArchivo = 'Inquilino-propietarios-datos.csv', 
     @rutaArchivo = 'H:\Users\Morrones\Downloads\consorcios'
 GO
@@ -621,7 +621,7 @@ GO
 
 
 /* PROCEDURE PARA IMPORTAR E INSERTAR DATOS DE GASTOS ORDINARIOS */
-CREATE OR ALTER PROCEDURE sp_ImportarGastosOrdinarios 
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarGastosOrdinarios 
 AS
 BEGIN
     CREATE TABLE #datosGastosOrdinarios (
@@ -815,16 +815,16 @@ BEGIN
 END
 GO
 
-EXEC sp_ImportarGastosOrdinarios
+EXEC LogicaBD.sp_ImportarGastosOrdinarios
 
 /* PROCEDURE PARA IMPORTAR E INSERTAR DATOS DE PAGOS Y CREAR EXPENSAS */
 IF OBJECT_ID('sp_ImportarPagos','P') IS NOT NULL
 BEGIN
-    DROP PROCEDURE sp_ImportarPagos
+    DROP PROCEDURE LogicaBD.sp_ImportarPagos
 END
 GO
 
-CREATE PROCEDURE sp_ImportarPagos
+CREATE PROCEDURE LogicaBD.sp_ImportarPagos
 AS
 BEGIN
     CREATE TABLE #temporalPagos (
@@ -885,5 +885,5 @@ BEGIN
 END
 GO
 
-EXEC sp_ImportarPagos
+EXEC LogicaBD.sp_ImportarPagos
 GO
