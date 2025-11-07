@@ -91,16 +91,20 @@ BEGIN
 		id INT IDENTITY (1,1),
 		piso CHAR(2) CHECK (piso LIKE 'PB' OR piso BETWEEN '01' AND '99'),
 		departamento CHAR(1) CHECK (departamento LIKE '[A-Z]'),
-		dimension DECIMAL(5,2) NOT NULL,
-		m2Cochera DECIMAL(5,2),
-		m2Baulera DECIMAL(5,2),
+		dimension DECIMAL(5,2) NOT NULL CHECK (dimension > 0),
+		m2Cochera DECIMAL(5,2) CHECK (m2Cochera >= 0),
+		m2Baulera DECIMAL(5,2) CHECK (m2Baulera >= 0),
 		porcentajeParticipacion DECIMAL(4,2) NOT NULL CHECK (porcentajeParticipacion > 0 AND porcentajeParticipacion <= 100),
-		cbu_cvu CHAR(22) NOT NULL UNIQUE CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
+		cbu_cvu CHAR(22) NOT NULL CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
 		idEdificio INT,
 		CONSTRAINT pk_UF PRIMARY KEY (id),
 		CONSTRAINT fk_UF_Edificio FOREIGN KEY (idEdificio) REFERENCES Infraestructura.Edificio(id)
 	)
 END
+
+-- Evita duplicar la UF en un edicio
+CREATE UNIQUE INDEX UX_UF_EdificioPisoDto
+ON Infraestructura.UnidadFuncional(idEdificio, piso, departamento);
 
 -- Incluye Consorcio
 IF OBJECT_ID('Administracion.Consorcio', 'U') IS NULL
@@ -118,12 +122,12 @@ END
 IF OBJECT_ID('Personas.Persona', 'U') IS NULL
 BEGIN
 	CREATE TABLE Personas.Persona(
-		dni VARCHAR(9) CHECK (dni NOT LIKE '%[^0-9]%'),
+		dni VARCHAR(9) CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) BETWEEN 7 AND 9),
 		nombre VARCHAR(50) NOT NULL,
 		apellido VARCHAR(50) NOT NULL,
-		email VARCHAR(100) NOT NULL CHECK (email LIKE '%@%'),
+		email VARCHAR(100) NULL CHECK (email IS NULL OR email LIKE '%@%'),
 		email_trim AS LOWER(LTRIM(RTRIM(email))),
-		telefono VARCHAR(10) NOT NULL CHECK (telefono NOT LIKE '%[^0-9]%'),
+		telefono VARCHAR(10) NOT NULL CHECK (telefono NOT LIKE '%[^0-9]%' AND LEN(telefono)=10),
 		cbu_cvu CHAR(22) NOT NULL UNIQUE CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
 		CONSTRAINT pk_Persona PRIMARY KEY (dni)
 	)
@@ -131,6 +135,7 @@ END
 
 CREATE UNIQUE INDEX UX_Persona_EmailTrim
 ON Personas.Persona(email_trim)
+WHERE email_trim IS NOT NULL;
 
 IF OBJECT_ID('Personas.PersonaEnUF', 'U') IS NULL
 BEGIN
@@ -175,11 +180,12 @@ BEGIN
 	)
 END
 
+-- Expensa única por consorcio y periodo
+CREATE UNIQUE INDEX UX_Expensa_ConsorcioPeriodo
+ON Gastos.Expensa(idConsorcio, periodo);
+
 /*
-Numero de factura siento que no deberia ser INT, deberia ser CHAR
 Basado en los archivos, GastoOrdinario, quizas deberia ser que cada campo sea el tipoDeGasto, y periodo (mes+año)?
-Cambiaria y en lugar de relacionarlo con la expensa, lo relacionaria con el consorcio. Porque de la otra manera, 
-no puedo crear un gasto ordinario sin antes crear una expensa
 */
 IF OBJECT_ID('Gastos.GastoOrdinario', 'U') IS NULL
 BEGIN
@@ -193,7 +199,7 @@ BEGIN
 					'Generales', 'Servicios Publico')
 				),
 		empresaPersona VARCHAR(100),
-		nroFactura INT,
+		nroFactura VARCHAR(20),
 		importeFactura DECIMAL(8,2),
 		sueldoEmpleadoDomestico DECIMAL(10,2),
 		detalle VARCHAR(200),
@@ -211,8 +217,8 @@ BEGIN
 		detalle VARCHAR(200) NOT NULL,
 		importe DECIMAL(10,2) NOT NULL,
 		formaPago VARCHAR(6) CHECK (formaPago IN ('Cuotas','Total')) NOT NULL,
-		nroCuotaAPagar INT CHECK (nroCuotaAPagar > 0),
-		nroTotalCuotas INT CHECK (nroTotalCuotas > 0),
+		nroCuotaAPagar INT CHECK (nroCuotaAPagar > 0) NOT NULL,
+		nroTotalCuotas INT CHECK (nroTotalCuotas > 0) NOT NULL,
 		idConsorcio INT,
 		CONSTRAINT pk_GastoExtraordinario PRIMARY KEY (id),
 		CONSTRAINT fk_GastoExtraordinario_Consorcio FOREIGN KEY (idConsorcio) REFERENCES Administracion.Consorcio(id)
@@ -222,7 +228,7 @@ END
 IF OBJECT_ID('Gastos.DetalleExpensa', 'U') IS NULL
 BEGIN
 	CREATE TABLE Gastos.DetalleExpensa (
-		id INT,
+		id INT IDENTITY(1, 1),
 		montoBase DECIMAL(10,2) CHECK (montoBase > 0),
 		deuda DECIMAL(10,2),
 		intereses DECIMAL (10,2),
@@ -238,13 +244,17 @@ BEGIN
 	)
 END
 
+-- Unico detalle por expensa/UF (evita duplicados)
+CREATE UNIQUE INDEX UX_DetalleExpensa_ExpensaUF
+ON Gastos.DetalleExpensa(idExpensa, idUF);
+
 IF OBJECT_ID('Gastos.EnvioExpensa', 'U') IS NULL
 BEGIN
 	CREATE TABLE Gastos.EnvioExpensa (
-		id INT,
+		id INT IDENTITY(1, 1),
 		rol VARCHAR(10),
 		metodo VARCHAR(8) CHECK (metodo IN ('email', 'telefono', 'impreso')),
-		email VARCHAR(100) NOT NULL UNIQUE CHECK (email LIKE '%@%'),
+		email VARCHAR(100) NULL CHECK (email LIKE '%@%'),
 		telefono VARCHAR(10) NOT NULL CHECK (telefono NOT LIKE '%[^0-9]%'),
 		fecha DATE NOT NULL,
 		estado CHAR(1) NOT NULL CHECK (estado IN ('P', 'E', 'D')),
@@ -261,9 +271,9 @@ BEGIN
 	CREATE TABLE Finanzas.Pagos (
 		id INT IDENTITY(1, 1),
 		fecha DATE NOT NULL,
-		monto DECIMAL(10,2) NOT NULL,
-		cuentaBancaria VARCHAR(22),
-		valido BIT,
+		monto DECIMAL(10,2) NOT NULL CHECK(monto >0),
+		cuentaBancaria VARCHAR(22) NOT NULL,
+		valido BIT NOT NULL,
 		idExpensa INT,
 		idUF INT,
 		CONSTRAINT pk_Pagos PRIMARY KEY (id),

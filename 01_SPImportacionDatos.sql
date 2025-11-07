@@ -531,7 +531,7 @@ BEGIN
     -- Elimino datos NULL, CVU invalido o telefono invalido
     DELETE FROM #temporalInquilinosCSV 
     WHERE nombre IS NULL OR apellido IS NULL OR dni IS NULL OR cvu IS NULL OR inquilino IS NULL 
-		OR email IS NULL OR telefono IS NULL OR LEN(telefono) <> 10 OR telefono LIKE '%[^0-9]%' OR LEN(cvu) <> 22 
+		OR telefono IS NULL OR LEN(telefono) <> 10 OR telefono LIKE '%[^0-9]%' OR LEN(cvu) <> 22 
 		OR cvu LIKE '%[^0-9]%';
     
 	-- Elimino repetidos
@@ -551,6 +551,7 @@ BEGIN
 	;WITH email_repetidos AS (
 	  SELECT *, ROW_NUMBER() OVER (PARTITION BY LOWER(LTRIM(RTRIM(email))) ORDER BY dni) filasEmail
 	  FROM #temporalInquilinosCSV
+	  WHERE email IS NOT NULL
 	)
 	DELETE FROM email_repetidos WHERE filasEmail > 1;
 
@@ -566,7 +567,7 @@ BEGIN
 		FROM #temporalInquilinosCSV S
 		WHERE NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.DNI = S.dni)
 			AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.cbu_cvu = S.cvu)
-			AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.email_trim = S.email);
+			AND (S.email IS NULL OR NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.email_trim = S.email));
 	END TRY
 	BEGIN CATCH
 		IF ERROR_NUMBER() IN (2601,2627)
