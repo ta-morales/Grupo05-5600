@@ -461,8 +461,8 @@ END
 GO
 
 EXEC sp_InsertarUnidadesFuncionales
-    @rutaArchivoUniadesFuncionales = 'H:\Users\Morrones\Downloads\consorcios',
-    @nombreArchivoUnidadesFuncionales = 'UF por consorcio.txt'
+    @nombreRuta = 'H:\Users\Morrones\Downloads\consorcios',
+    @nombreArchivo = 'UF por consorcio.txt'
 GO
 /* --------------------------------------------- */
 
@@ -531,27 +531,32 @@ BEGIN
     -- Elimino datos NULL, CVU invalido o telefono invalido
     DELETE FROM #temporalInquilinosCSV 
     WHERE nombre IS NULL OR apellido IS NULL OR dni IS NULL OR cvu IS NULL OR inquilino IS NULL 
-		OR telefono IS NULL OR LEN(telefono) <> 10 OR telefono LIKE '%[^0-9]%' OR LEN(cvu) <> 22 
+		OR email IS NULL OR telefono IS NULL OR LEN(telefono) <> 10 OR telefono LIKE '%[^0-9]%' OR LEN(cvu) <> 22 
 		OR cvu LIKE '%[^0-9]%';
     
 	-- Elimino repetidos
-    WITH dni_repetidos AS
+    ;WITH dni_repetidos AS
     (
-        SELECT *, ROW_NUMBER() OVER (PARTITION BY dni ORDER BY dni) AS filasDni
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY dni ORDER BY dni, email) AS filasDni
         FROM #temporalInquilinosCSV
     )
     DELETE FROM dni_repetidos WHERE filasDni > 1;
 
-	WITH cvu_repetidos AS (
-	  SELECT *, ROW_NUMBER() OVER (PARTITION BY cvu ORDER BY dni) as filasCvu
+	;WITH cvu_repetidos AS (
+	  SELECT *, ROW_NUMBER() OVER (PARTITION BY cvu ORDER BY cvu, dni) as filasCvu
 	  FROM #temporalInquilinosCSV
 	)
 	DELETE FROM cvu_repetidos WHERE filasCvu > 1;
 
+	;WITH email_repetidos AS (
+	  SELECT *, ROW_NUMBER() OVER (PARTITION BY LOWER(LTRIM(RTRIM(email))) ORDER BY dni) filasEmail
+	  FROM #temporalInquilinosCSV
+	)
+	DELETE FROM email_repetidos WHERE filasEmail > 1;
+
 	-- 
     UPDATE #temporalInquilinosCSV
-    SET email = NULL
-    WHERE email LIKE '% %';
+    SET email = LOWER(LTRIM(RTRIM(email)));
 
 	-- Inserto datos en Persona
 	BEGIN TRY
@@ -560,18 +565,25 @@ BEGIN
 		SELECT S.dni, S.nombre, S.apellido, S.email, S.telefono, S.cvu
 		FROM #temporalInquilinosCSV S
 		WHERE NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.DNI = S.dni)
-			AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.cbu_cvu = S.cvu);
+			AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.cbu_cvu = S.cvu)
+			AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.email_trim = S.email);
 	END TRY
 	BEGIN CATCH
 		IF ERROR_NUMBER() IN (2601,2627)
 		BEGIN
 			-- actualiza los que ya existían (refresco de datos)
 			UPDATE P
-			SET  P.Nombre = S.nombre,
-					P.Apellido = S.apellido,
-					P.Email = COALESCE(S.email, P.Email),
-					P.Telefono = COALESCE(S.telefono, P.Telefono),
-					P.cbu_cvu = COALESCE(S.cvu, P.cbu_cvu)
+			SET P.Nombre = S.nombre,
+				P.Apellido = S.apellido,
+				P.Email = CASE 
+							WHEN NOT EXISTS (SELECT 1 FROM Personas.Persona X
+											 WHERE X.email_trim = S.email
+											   AND X.dni <> P.dni)
+							THEN COALESCE(S.email, P.Email)
+							ELSE P.Email
+						  END,
+				P.Telefono = COALESCE(S.telefono, P.Telefono),
+				P.cbu_cvu = COALESCE(S.cvu, P.cbu_cvu)
 			FROM Personas.Persona P
 			JOIN #temporalInquilinosCSV S ON P.DNI = S.dni;
 		END
