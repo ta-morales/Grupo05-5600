@@ -1,6 +1,6 @@
 USE Grupo05_5600
 GO
-
+-- djsfhnsadjkgnbsajkga
 /* ======================== Funciones de Normalización ======================== */
 IF SCHEMA_ID('LogicaNormalizacion') IS NULL EXEC('CREATE SCHEMA LogicaNormalizacion');
 IF SCHEMA_ID('LogicaBD') IS NULL EXEC('CREATE SCHEMA LogicaBD');
@@ -227,7 +227,7 @@ END
 GO
 
 /* =============================== Procedimientos =============================== */
-CREATE OR ALTER PROCEDURE Infraestructura.sp_InsertarEnConsorcio 
+CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarEnConsorcio 
 @direccion VARCHAR(100),
 @nombre VARCHAR(100)
 AS
@@ -242,12 +242,11 @@ BEGIN
     )
     BEGIN
         INSERT INTO Administracion.Consorcio (nombre, idEdificio) VALUES (@nombre, @idEdificio)
-        PRINT 'Consorcio ' + @nombre + ' insertado.'
     END
 END
 GO
 
-CREATE OR ALTER PROCEDURE sp_ImportarConsorciosYEdificios
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarConsorciosYEdificios
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -257,43 +256,39 @@ BEGIN
         ('Santa Fe 910', 784),
         ('Corrientes 5678', 1316),
         ('Rivadavia 1234', 1691)
-
-    PRINT 'Edificios Insertados'
     
-    EXEC Infraestructura.sp_InsertarEnConsorcio @direccion='Belgrano 3344', @nombre='Azcuenaga'
-    EXEC Infraestructura.sp_InsertarEnConsorcio @direccion='Callao 1122', @nombre='Alzaga'
-    EXEC Infraestructura.sp_InsertarEnConsorcio @direccion='Santa Fe 910', @nombre='Alberdi'
-    EXEC Infraestructura.sp_InsertarEnConsorcio @direccion='Corrientes 5678', @nombre='Unzue'
-    EXEC Infraestructura.sp_InsertarEnConsorcio @direccion='Rivadavia 1234', @nombre='Pereyra Iraola'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Belgrano 3344', @nombre='Azcuenaga'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Callao 1122', @nombre='Alzaga'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Santa Fe 910', @nombre='Alberdi'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Corrientes 5678', @nombre='Unzue'
+    EXEC LogicaBD.sp_InsertarEnConsorcio @direccion='Rivadavia 1234', @nombre='Pereyra Iraola'
 END
 GO
 
-CREATE OR ALTER PROCEDURE sp_ImportarInquilinosPropietarios
-@rutaArchivoInquilinosPropietarios VARCHAR(100),
-@nombreArchivoInquilinosPropietarios VARCHAR(100)
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarInquilinosPropietarios
+@rutaArchivo VARCHAR(100),
+@nombreArchivo VARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
 
     DECLARE 
-            @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivoInquilinosPropietarios),
-            @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivoInquilinosPropietarios, 'csv');
+            @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
+            @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'csv');
     
     IF (@ruta IS NULL OR @ruta = '' OR @archivo = '')
     BEGIN
-        PRINT 'Ruta o archivo inválidos (se esperaba .csv)'; 
         RETURN;
     END;
 
     DECLARE @rutaArchivoCompleto VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
-    PRINT @rutaArchivoCompleto;
 
-    IF OBJECT_ID('tempdb..#temporalInquilinosPropietariosCSV') IS NOT NULL
+    IF OBJECT_ID('tempdb..##temporalInquilinosPropietariosCSV') IS NOT NULL
     BEGIN
-        DROP TABLE #temporalInquilinosPropietariosCSV
+        DROP TABLE ##temporalInquilinosPropietariosCSV
     END
 
-    CREATE TABLE #temporalInquilinosPropietariosCSV (
+    CREATE TABLE ##temporalInquilinosPropietariosCSV (
         cvu VARCHAR(100),
         consorcio VARCHAR(100),
         nroUF VARCHAR(5),
@@ -302,42 +297,35 @@ BEGIN
     )
 
     DECLARE @sql NVARCHAR(MAX) = N'
-        BULK INSERT #temporalInquilinosPropietariosCSV
+        BULK INSERT ##temporalInquilinosPropietariosCSV
         FROM ''' + @rutaArchivoCompleto + '''
         WITH (
-            FIELDTERMINATOR = '','',
+            FIELDTERMINATOR = ''|'',
             ROWTERMINATOR = ''\n'',
             CODEPAGE = ''65001'',
             FIRSTROW = 2
         )';
     
     EXEC sp_executesql @sql;
-
-    SELECT COUNT(*) AS FilasCargadas
-    FROM #temporalInquilinosPropietariosCSV;
 END
 GO
 
-CREATE OR ALTER PROCEDURE sp_InsertarUnidadesFuncionales
-  @nombreRuta VARCHAR(100),
-  @nombreArchivo VARCHAR(100),
-  @rutaArchivoIPUF VARCHAR(100) = NULL,
-  @nombreArchivoIPUF VARCHAR(100) = NULL
+CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarUnidadesFuncionales
+  @rutaArchivo VARCHAR(100),
+  @nombreArchivo VARCHAR(100)
 AS
 BEGIN
   SET NOCOUNT ON;
 
-  DECLARE @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@nombreRuta),
+  DECLARE @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
           @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'txt');
 
   IF (@ruta = '' OR @archivo = '')
   BEGIN
-    PRINT 'Ruta o archivo inválidos (se esperaba .txt)';
     RETURN;
   END;
 
   DECLARE @rutaArchivoCompleto VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
-  PRINT @rutaArchivoCompleto;
 
   IF OBJECT_ID('tempdb..#temporalUF') IS NOT NULL 
   BEGIN
@@ -368,46 +356,18 @@ BEGIN
     )';
   EXEC sp_executesql @sql;
 
-  DECLARE @creadaIPUF BIT = 0;
-  IF OBJECT_ID('tempdb..#temporalInquilinosPropietariosCSV') IS NULL
-  BEGIN
-    DECLARE @rutaIP VARCHAR(100)  = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivoIPUF);
-    DECLARE @archIP VARCHAR(100)  = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivoIPUF, 'csv');
-
-    IF (@rutaIP IS NOT NULL AND @rutaIP <> '' AND @archIP <> '')
-    BEGIN
-      CREATE TABLE #temporalInquilinosPropietariosCSV (
-        cvu VARCHAR(100),
-        consorcio VARCHAR(100),
-        nroUF VARCHAR(5),
-        piso VARCHAR(5),
-        dpto VARCHAR(5)
-      );
-
-      DECLARE @rutaIPCompleta VARCHAR(200) = REPLACE(@rutaIP + @archIP, '''', '''''');
-      DECLARE @sqlIP NVARCHAR(MAX) = N'
-        BULK INSERT #temporalInquilinosPropietariosCSV
-        FROM ''' + @rutaIPCompleta + N'''
-        WITH (
-          FIELDTERMINATOR = '','',
-          ROWTERMINATOR = ''\n'',
-          CODEPAGE = ''65001'',
-          FIRSTROW = 2
-        )';
-      EXEC sp_executesql @sqlIP;
-      SET @creadaIPUF = 1;
-    END
-  END
-
   DELETE FROM #temporalUF 
   WHERE nombreConsorcio IS NULL OR LTRIM(RTRIM(nombreConsorcio)) = '';
 
-  DELETE uf
-  FROM Infraestructura.UnidadFuncional uf
-  INNER JOIN Administracion.Consorcio c ON c.idEdificio = uf.idEdificio
-  INNER JOIN #temporalUF t ON t.nombreConsorcio = c.nombre
-                           AND t.piso = uf.piso
-                           AND t.dpto = uf.departamento;
+  DELETE tUF
+    FROM #temporalUF AS tUF
+    LEFT JOIN Administracion.Consorcio AS c
+        ON tUF.nombreConsorcio = c.nombre
+    LEFT JOIN Infraestructura.UnidadFuncional AS uf
+        ON tUF.piso = uf.piso
+        AND tUF.dpto = uf.departamento
+        AND c.idEdificio = uf.idEdificio
+    WHERE c.id IS NOT NULL AND uf.id IS NOT NULL
 
   INSERT INTO Infraestructura.UnidadFuncional
     (piso, departamento, dimension, m2Cochera, m2Baulera, porcentajeParticipacion, cbu_cvu, idEdificio)
@@ -422,22 +382,22 @@ BEGIN
     c.idEdificio
   FROM #temporalUF t
   INNER JOIN Administracion.Consorcio c ON c.nombre = t.nombreConsorcio
-  LEFT JOIN #temporalInquilinosPropietariosCSV tpi
+  LEFT JOIN ##temporalInquilinosPropietariosCSV AS tpi
          ON tpi.consorcio = t.nombreConsorcio
         AND tpi.piso      = t.piso
         AND tpi.dpto      = t.dpto
   WHERE tpi.cvu IS NOT NULL;
 
-  IF (@creadaIPUF = 1 AND OBJECT_ID('tempdb..#temporalInquilinosPropietariosCSV') IS NOT NULL)
+  IF (OBJECT_ID('tempdb..##temporalInquilinosPropietariosCSV') IS NOT NULL)
   BEGIN
-    DROP TABLE #temporalInquilinosPropietariosCSV;
+    DROP TABLE ##temporalInquilinosPropietariosCSV;
   END
 END
 GO
 
-CREATE OR ALTER PROCEDURE sp_ImportarDatosInquilinos
-@nombreArchivo VARCHAR(100),
-@rutaArchivo VARCHAR(100)
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarDatosInquilinos
+@rutaArchivo VARCHAR(100),
+@nombreArchivo VARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -447,12 +407,10 @@ BEGIN
 
     IF (@ruta = '' OR @archivo = '')
     BEGIN
-        PRINT 'Ruta o archivo inválidos (se esperaba .csv)';
         RETURN;
     END;
 
     DECLARE @rutaArchivoCompleto VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
-    PRINT @rutaArchivoCompleto;
 
     IF OBJECT_ID('tempdb..#temporalInquilinosCSV') IS NOT NULL
     BEGIN
@@ -480,6 +438,8 @@ BEGIN
         )';
 
     EXEC sp_executesql @sql;
+
+    SELECT * FROM #temporalInquilinosCSV
 
     UPDATE #temporalInquilinosCSV
     SET nombre = CONCAT(UPPER(LEFT(LTRIM(RTRIM(nombre)),1)), LOWER(SUBSTRING(LTRIM(RTRIM(nombre)),2,100))),
@@ -516,9 +476,9 @@ BEGIN
 
     UPDATE #temporalInquilinosCSV
     SET email = LOWER(LTRIM(RTRIM(email)));
-
+    
     BEGIN TRY
-        INSERT INTO Personas.Persona (DNI, Nombre, Apellido, Email, Telefono, cbu_cvu)
+        INSERT INTO Personas.Persona (dni, nombre, apellido, email, telefono, cbu_cvu)
         SELECT S.dni, S.nombre, S.apellido, S.email, S.telefono, S.cvu
         FROM #temporalInquilinosCSV S
         WHERE NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.DNI = S.dni)
@@ -529,16 +489,16 @@ BEGIN
         IF ERROR_NUMBER() IN (2601,2627)
         BEGIN
             UPDATE P
-            SET P.Nombre = S.nombre,
-                P.Apellido = S.apellido,
-                P.Email = CASE 
+            SET P.nombre = S.nombre,
+                P.apellido = S.apellido,
+                P.email = CASE 
                                 WHEN NOT EXISTS (SELECT 1 FROM Personas.Persona X
                                                  WHERE X.email_trim = S.email
                                                    AND X.dni <> P.dni)
-                                THEN COALESCE(S.email, P.Email)
-                                ELSE P.Email
+                                THEN COALESCE(S.email, P.email)
+                                ELSE P.email
                               END,
-                P.Telefono = COALESCE(S.telefono, P.Telefono),
+                P.telefono = COALESCE(S.telefono, P.telefono),
                 P.cbu_cvu = COALESCE(S.cvu, P.cbu_cvu)
             FROM Personas.Persona P
             JOIN #temporalInquilinosCSV S ON P.DNI = S.dni;
@@ -566,7 +526,7 @@ END
 GO
 
 /* Modificado: sp_ImportarGastosOrdinarios parametrizado y sin duplicados de expensas */
-CREATE OR ALTER PROCEDURE sp_ImportarGastosOrdinarios 
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarGastosOrdinarios 
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
 AS
@@ -598,57 +558,259 @@ BEGIN
     VALUES
     ('GASTOS BANCARIOS', 'BANCO CREDICOOP - Gastos bancario', NULL, 'Azcuenaga'),
     ('GASTOS DE ADMINISTRACION', 'FLAVIO HERNAN DIAZ - Honorarios', NULL, 'Azcuenaga'),
-    ('SEGUROS', 'FEDERACION PATRONAL SEGUROS - Integral de consorcio', NULL, 'Azcuenaga'),
+    ('SEGUROS', 'FEDERACIÓN PATRONAL SEGUROS - Integral de consorcio', NULL, 'Azcuenaga'),
     ('SERVICIOS PUBLICOS', 'AYSA', 'Cuenta 195329', 'Azcuenaga'),
     ('SERVICIOS PUBLICOS', 'EDENOR', 'Cuenta 4363152506', 'Azcuenaga'),
-    ('GASTOS DE LIMPIEZA', 'Serv. Limpieza', 'Limptech', 'Azcuenaga');
-
+    ('GASTOS DE LIMPIEZA', 'Serv. Limpieza', 'Limptech', 'Azcuenaga'),
+    ('GASTOS BANCARIOS', 'BANCO CREDICOOP - Gastos bancario', NULL, 'Alzaga'),
+    ('GASTOS DE ADMINISTRACION', 'FLAVIO HERNAN DIAZ - Honorarios', NULL, 'Alzaga'),
+    ('SEGUROS', 'FEDERACIÓN PATRONAL SEGUROS - Integral de consorcio', NULL, 'Alzaga'),
+    ('SERVICIOS PUBLICOS', 'AYSA', 'Cuenta 174329', 'Alzaga'),
+    ('SERVICIOS PUBLICOS', 'EDENOR', 'Cuenta 4363125506', 'Alzaga'),
+    ('GASTOS DE LIMPIEZA', 'Serv. Limpieza', 'Limpi AR', 'Alzaga'),
+    ('SEGUROS', 'FEDERACIÓN PATRONAL SEGUROS - Integral de consorcio', NULL, 'Alberdi'),
+    ('SERVICIOS PUBLICOS', 'AYSA', 'Cuenta 215329', 'Alberdi'),
+    ('SERVICIOS PUBLICOS', 'EDENOR', 'Cuenta 4463152506', 'Alberdi'),
+    ('GASTOS DE LIMPIEZA', 'Serv. Limpieza', 'Clean SA', 'Alberdi'),
+    ('GASTOS BANCARIOS', 'BANCO CREDICOOP - Gastos bancario', NULL, 'Unzue'),
+    ('GASTOS DE ADMINISTRACION', 'FLAVIO HERNAN DIAZ - Honorarios', NULL, 'Unzue'),
+    ('SEGUROS', 'FEDERACIÓN PATRONAL SEGUROS - Integral de consorcio', NULL, 'Unzue'),
+    ('SERVICIOS PUBLICOS', 'AYSA', 'Cuenta 544329', 'Unzue'),
+    ('SERVICIOS PUBLICOS', 'EDENOR', 'Cuenta 4447852506', 'Unzue'),
+    ('GASTOS DE LIMPIEZA', 'Serv. Limpieza', 'Limpieza General SA', 'Unzue'),
+    ('GASTOS BANCARIOS', 'BANCO CREDICOOP - Gastos bancario', NULL, 'Pereyra Iraola'),
+    ('GASTOS DE ADMINISTRACION', 'FLAVIO HERNAN DIAZ - Honorarios', NULL, 'Pereyra Iraola'),
+    ('SEGUROS', 'FEDERACIÓN PATRONAL SEGUROS - Integral de consorcio', NULL, 'Pereyra Iraola'),
+    ('SERVICIOS PUBLICOS', 'AYSA', 'Cuenta 5147329', 'Pereyra Iraola'),
+    ('SERVICIOS PUBLICOS', 'EDENOR', 'Cuenta 445742506', 'Pereyra Iraola'),
+    ('GASTOS DE LIMPIEZA', 'Serv. Limpieza', 'Limptech', 'Pereyra Iraola');
+    
     DECLARE @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
             @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'json');
 
     IF (@ruta = '' OR @archivo = '')
     BEGIN
-        PRINT 'Ruta o archivo inválidos (se esperaba .json)';
         RETURN;
     END;
+
+    UPDATE p
+    SET p.consorcio = c.id
+    FROM #datosProveedores AS p
+    INNER JOIN Administracion.Consorcio AS c ON c.nombre = p.consorcio;
 
     DECLARE @rutaCompleta VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
     DECLARE @sql NVARCHAR(MAX) = N'
         INSERT INTO #datosGastosOrdinarios(id,consorcio,mes,bancarios,limpieza,administracion,seguros,generales, agua, luz, internet)
-        SELECT JSON_VALUE(_id, ''$[''$oid'']'') AS id, consorcio, mes, bancarios, limpieza, administracion, seguros, generales, agua, luz, internet
+        SELECT 
+            JSON_VALUE(_id, ''$."$oid"'') AS id, 
+            consorcio, 
+            mes, 
+            bancarios, 
+            limpieza, 
+            administracion, 
+            seguros, 
+            generales, 
+            agua, 
+            luz, 
+            internet
         FROM OPENROWSET (BULK ''' + @rutaCompleta + N''', SINGLE_CLOB) AS ordinariosJSON
         CROSS APPLY OPENJSON(ordinariosJSON.BulkColumn, ''$'') 
         WITH ( 
             _id NVARCHAR(MAX) as JSON,
-            consorcio varchar(100) ''$[''Nombre del consorcio'']'',
+            consorcio varchar(100) ''$."Nombre del consorcio"'',
             mes varchar(15) ''$.Mes'',
             bancarios varchar(100) ''$.BANCARIOS'',
             limpieza varchar(100) ''$.LIMPIEZA'',
             administracion varchar(100) ''$.ADMINISTRACION'',
             seguros varchar(100) ''$.SEGUROS'',
-            generales varchar(100) ''$[''GASTOS GENERALES'']'',
-            agua varchar(100) ''$[''SERVICIOS PUBLICOS-Agua'']'',
-            luz varchar(100) ''$[''SERVICIOS PUBLICOS-Luz'']'',
-            internet varchar(100) ''$[''SERVICIOS PUBLICOS-Internet'']''
-        )';
+            generales varchar(100) ''$."GASTOS GENERALES"'',
+            agua varchar(100) ''$."SERVICIOS PUBLICOS-Agua"'',
+            luz varchar(100) ''$."SERVICIOS PUBLICOS-Luz"'',
+            internet varchar(100) ''$."SERVICIOS PUBLICOS-Internet"''
+        );'
+
     EXEC sp_executesql @sql;
 
-    DELETE FROM #datosGastosOrdinarios WHERE consorcio IS NULL;
+    DELETE FROM #datosGastosOrdinarios WHERE consorcio IS NULL
+
+    UPDATE #datosGastosOrdinarios
+    SET
+        mes = LogicaNormalizacion.fn_NumeroMes(mes),
+        bancarios = REPLACE(bancarios,'.',''),
+        limpieza = REPLACE(limpieza,'.',''),
+        administracion = REPLACE(administracion,'.',''),
+        seguros = REPLACE(seguros,'.',''),
+        generales = REPLACE(generales,'.',''),
+        agua = REPLACE(agua,'.',''),
+        luz = REPLACE(luz,'.',''),
+        internet = REPLACE(internet,'.','')
+
+    UPDATE g
+        SET g.consorcio = c.idEdificio
+        FROM #datosGastosOrdinarios AS g
+        INNER JOIN Administracion.Consorcio AS c ON c.nombre = g.consorcio
 
     UPDATE #datosGastosOrdinarios
     SET 
-        consorcio = ( SELECT idEdificio FROM Administracion.Consorcio c WHERE c.nombre = #datosGastosOrdinarios.consorcio),
-        mes = LogicaNormalizacion.fn_NumeroMes(mes),
-        bancarios = REPLACE(bancarios,'.','');
+        bancarios = REPLACE(LTRIM(RTRIM(bancarios)),',',''),
+        limpieza = REPLACE(LTRIM(RTRIM(limpieza)),',',''),
+        administracion = REPLACE(LTRIM(RTRIM(administracion)),',',''),
+        seguros = REPLACE(LTRIM(RTRIM(seguros)),',',''),
+        generales = REPLACE(LTRIM(RTRIM(generales)),',',''),
+        agua = REPLACE(LTRIM(RTRIM(agua)),',',''),
+        luz = REPLACE(LTRIM(RTRIM(luz)),',',''),
+        internet = REPLACE(LTRIM(RTRIM(internet)),',','')
+
+    
+    DECLARE @contador INT = 0
+    DECLARE @cantidadRegistros INT  = (SELECT COUNT(*) FROM #datosGastosOrdinarios)
+    DECLARE @numeroFactura INT = ISNULL((SELECT MAX(nroFactura) FROM Gastos.GastoOrdinario), 999) + 1
+        
+    WHILE @contador < @cantidadRegistros
+    BEGIN
+        DECLARE @gastoBan DECIMAL(10,2) = CAST((SELECT bancarios  FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY) AS DECIMAL(10,2))
+        DECLARE @gastoLim DECIMAL (10,2) = CAST((SELECT limpieza FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)  AS DECIMAL(10,2))
+        DECLARE @gastoAdm DECIMAL (10,2) = CAST((SELECT administracion FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)  AS DECIMAL(10,2))
+        DECLARE @gastoSeg DECIMAL (10,2) = CAST((SELECT seguros FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)  AS DECIMAL(10,2))
+        DECLARE @gastoGen DECIMAL (10,2) = CAST((SELECT generales FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)  AS DECIMAL(10,2))
+        DECLARE @gastoAgu DECIMAL (10,2) = CAST((SELECT agua FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)  AS DECIMAL(10,2))
+        DECLARE @gastoLuz DECIMAL (10,2) = CAST((SELECT luz FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)  AS DECIMAL(10,2))
+        DECLARE @gastoNet DECIMAL (10,2) = CAST((SELECT internet FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)  AS DECIMAL(10,2))
+        DECLARE @mes INT  = (SELECT mes FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)
+        DECLARE @idConsorcio INT = (SELECT consorcio FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)
+        DECLARE @empresa VARCHAR(100)
+        
+        IF NOT EXISTS (
+            SELECT 1
+            FROM Gastos.GastoOrdinario
+            WHERE mes = @mes
+              AND tipoGasto = 'Mantenimiento de cuenta bancaria'
+              AND detalle = ''
+              AND idConsorcio = @idConsorcio
+        ) 
+        BEGIN
+            SET @empresa = (SELECT empresa FROM #datosProveedores WHERE consorcio = @idConsorcio AND tipoGasto LIKE '%BANCARIOS%')
+            INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
+            VALUES (@mes, 'Mantenimiento de cuenta bancaria', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoBan/100, '', @idConsorcio)
+            SET @numeroFactura = @numeroFactura + 1
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM Gastos.GastoOrdinario
+            WHERE mes = @mes
+              AND tipoGasto = 'Limpieza'
+              AND detalle = ''
+              AND idConsorcio = @idConsorcio
+        ) 
+        BEGIN
+            SET @empresa = (SELECT empresa FROM #datosProveedores WHERE consorcio = @idConsorcio AND tipoGasto LIKE '%LIMPIEZA%')
+            INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
+            VALUES (@mes, 'Limpieza', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoLim/100, '', @idConsorcio)
+            SET @numeroFactura = @numeroFactura + 1
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM Gastos.GastoOrdinario
+            WHERE mes = @mes
+              AND tipoGasto = 'Administracion/Honorarios'
+              AND detalle = ''
+              AND idConsorcio = @idConsorcio
+        ) 
+        BEGIN
+            SET @empresa = (SELECT empresa FROM #datosProveedores WHERE consorcio = @idConsorcio AND tipoGasto LIKE '%ADMINISTRACION%')
+            INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
+            VALUES (@mes, 'Administracion/Honorarios', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoAdm/100, '', @idConsorcio)
+            SET @numeroFactura = @numeroFactura + 1
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM Gastos.GastoOrdinario
+            WHERE mes = @mes
+              AND tipoGasto = 'Seguro'
+              AND detalle = ''
+              AND idConsorcio = @idConsorcio
+        ) 
+        BEGIN
+            SET @empresa = (SELECT empresa FROM #datosProveedores WHERE consorcio = @idConsorcio AND tipoGasto LIKE '%SEGUROS%')
+            INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
+            VALUES (@mes, 'Seguro', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoSeg/100, '', @idConsorcio)
+            SET @numeroFactura = @numeroFactura + 1
+        END
+
+         IF NOT EXISTS (
+            SELECT 1
+            FROM Gastos.GastoOrdinario
+            WHERE mes = @mes
+              AND tipoGasto = 'Generales'
+              AND detalle = ''
+              AND idConsorcio = @idConsorcio
+        ) 
+        BEGIN
+            SET @empresa = NULL
+            INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
+            VALUES (@mes, 'Generales', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoGen/100, '', @idConsorcio)
+            SET @numeroFactura = @numeroFactura + 1
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM Gastos.GastoOrdinario
+            WHERE mes = @mes
+              AND tipoGasto = 'Servicios Publico'
+              AND detalle = 'Agua'
+              AND idConsorcio = @idConsorcio
+        ) 
+        BEGIN
+            SET @empresa = (SELECT empresa FROM #datosProveedores WHERE consorcio = @idConsorcio AND tipoGasto LIKE '%PUBLICOS%' AND empresa LIKE '%AYSA%')
+            INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
+            VALUES (@mes, 'Servicios Publico', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoAgu/100, 'Agua', @idConsorcio)
+            SET @numeroFactura = @numeroFactura + 1
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM Gastos.GastoOrdinario
+            WHERE mes = @mes
+              AND tipoGasto = 'Servicios Publico'
+              AND detalle = 'Luz'
+              AND idConsorcio = @idConsorcio
+        ) 
+        BEGIN
+            SET @empresa = (SELECT empresa FROM #datosProveedores WHERE consorcio = @idConsorcio AND tipoGasto LIKE '%PUBLICOS%' AND ( empresa LIKE '%EDENOR%' OR empresa LIKE '%EDESUR%'))
+            INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
+            VALUES (@mes, 'Servicios Publico', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoLuz/100, 'Luz', @idConsorcio)
+            SET @numeroFactura = @numeroFactura + 1
+        END
+        
+        IF @gastoNet IS NOT NULL AND NOT EXISTS (
+            SELECT 1
+            FROM Gastos.GastoOrdinario
+            WHERE mes = @mes
+              AND tipoGasto = 'Servicios Publico'
+              AND detalle = 'Internet'
+              AND idConsorcio = @idConsorcio
+        ) 
+        BEGIN
+            SET @empresa = (SELECT empresa FROM #datosProveedores WHERE consorcio = @idConsorcio AND tipoGasto LIKE '%PUBLICOS%' AND ( empresa NOT LIKE '%EDENOR%' AND empresa NOT LIKE '%EDESUR%' AND empresa NOT LIKE '%AYSA%'))
+            INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
+            VALUES (@mes, 'Servicios Publico', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoLuz/100, 'Internet', @idConsorcio)
+            SET @numeroFactura = @numeroFactura + 1
+        END
+        
+        SET @contador = @contador + 1
+    END
 
     INSERT INTO Gastos.Expensa 
-        (periodo, totalGastoOrdinario, totalGastoExtraordinario, primerVencimiento, segundoVencimiento, idConsorcio)
+       (periodo, totalGastoOrdinario, totalGastoExtraordinario, primerVencimiento, segundoVencimiento, idConsorcio)
     SELECT s.Periodo, s.TotalOrd, s.TotalExtra, s.PrimerV, s.SegundoV, s.IdConsorcio
     FROM (
         SELECT 
             CONCAT(RIGHT('0' + CAST(gOrd.mes AS VARCHAR(2)),2), CAST(YEAR(GETDATE()) AS VARCHAR(4))) AS Periodo, 
-            ISNULL(sum(gOrd.importeFactura),0) AS TotalOrd, 
-            ISNULL(sum(gEOrd.importe),0) AS TotalExtra, 
+            SUM(ISNULL(gOrd.importeFactura,0))AS TotalOrd, 
+            SUM(ISNULL(gEOrd.importe,0)) AS TotalExtra, 
             CAST(GETDATE() AS DATE) AS PrimerV,
             CAST(DATEADD(DAY, 7, GETDATE()) AS DATE) AS SegundoV,
             gOrd.idConsorcio AS IdConsorcio
@@ -665,7 +827,7 @@ END
 GO
 
 /* Modificado: sp_ImportarPagos parametrizado, sin insertar IDENTITY y con join corregido a expensa por periodo */
-CREATE OR ALTER PROCEDURE sp_ImportarPagos
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarPagos
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
 AS
@@ -683,7 +845,6 @@ BEGIN
 
     IF (@ruta = '' OR @archivo = '')
     BEGIN
-        PRINT 'Ruta o archivo inválidos (se esperaba .csv)';
         RETURN;
     END;
 
@@ -737,38 +898,3 @@ BEGIN
         );
 END
 GO
-
--- Ejemplos de ejecución (ajustar rutas y descomentar para probar)
--- EXEC sp_ImportarConsorciosYEdificios;
--- EXEC sp_ImportarInquilinosPropietarios @rutaArchivoInquilinosPropietarios='C:\\ruta\\consorcios', @nombreArchivoInquilinosPropietarios='Inquilino-propietarios-UF.csv';
--- EXEC sp_InsertarUnidadesFuncionales @nombreRuta='C:\\ruta\\consorcios', @nombreArchivo='UF por consorcio.txt', @rutaArchivoIPUF='C:\\ruta\\consorcios', @nombreArchivoIPUF='Inquilino-propietarios-UF.csv';
--- EXEC sp_ImportarDatosInquilinos @nombreArchivo='Inquilino-propietarios-datos.csv', @rutaArchivo='C:\\ruta\\consorcios';
--- EXEC sp_ImportarGastosOrdinarios @rutaArchivo='C:\\ruta\\consorcios', @nombreArchivo='Servicios.Servicios.json';
--- EXEC sp_ImportarPagos @rutaArchivo='C:\\ruta\\consorcios', @nombreArchivo='pagos_consorcios.csv';
-
-/* ============================ Ejecución con rutas locales ============================ */
-USE Grupo05_5600;
-
-EXEC sp_ImportarConsorciosYEdificios;
-
-EXEC sp_ImportarInquilinosPropietarios
-  @rutaArchivoInquilinosPropietarios = 'C:\Users\franc\OneDrive\Escritorio\UNlaM\BD\Grupo05-5600-main',
-  @nombreArchivoInquilinosPropietarios = 'Inquilino-propietarios-UF.csv';
-
-EXEC sp_InsertarUnidadesFuncionales
-  @nombreRuta = 'C:\Users\franc\OneDrive\Escritorio\UNlaM\BD\Grupo05-5600-main',
-  @nombreArchivo = 'UF por consorcio.txt',
-  @rutaArchivoIPUF = 'C:\Users\franc\OneDrive\Escritorio\UNlaM\BD\Grupo05-5600-main',
-  @nombreArchivoIPUF = 'Inquilino-propietarios-UF.csv';
-
-EXEC sp_ImportarDatosInquilinos
-  @nombreArchivo = 'Inquilino-propietarios-datos.csv',
-  @rutaArchivo = 'C:\Users\franc\OneDrive\Escritorio\UNlaM\BD\Grupo05-5600-main';
-
-EXEC sp_ImportarGastosOrdinarios
-  @rutaArchivo = 'C:\Users\franc\OneDrive\Escritorio\UNlaM\BD\Grupo05-5600-main',
-  @nombreArchivo = 'Servicios.Servicios.json';
-
-EXEC sp_ImportarPagos
-  @rutaArchivo = 'C:\Users\franc\OneDrive\Escritorio\UNlaM\BD\Grupo05-5600-main',
-  @nombreArchivo = 'pagos_consorcios.csv';

@@ -93,7 +93,7 @@ END
 IF OBJECT_ID('Infraestructura.UnidadFuncional', 'U') IS NULL
 BEGIN
     CREATE TABLE Infraestructura.UnidadFuncional(
-        id INT,
+        id INT IDENTITY(1,1),
         piso CHAR(2) CHECK (piso LIKE 'PB' OR piso BETWEEN '01' AND '99'),
         departamento CHAR(1) CHECK (departamento LIKE '[A-Z]'),
         dimension DECIMAL(5,2) NOT NULL,
@@ -128,16 +128,25 @@ BEGIN
         dni VARCHAR(9) CHECK (dni NOT LIKE '%[^0-9]%'),
         nombre VARCHAR(50) NOT NULL,
         apellido VARCHAR(50) NOT NULL,
-        email VARCHAR(100) NOT NULL CHECK (email LIKE '%@%'),
-        email_trim AS LOWER(LTRIM(RTRIM(email))),
+        email VARCHAR(100) NULL CHECK (email LIKE '%@%'),
+        email_trim AS LOWER(LTRIM(RTRIM(email))) PERSISTED,
         telefono VARCHAR(10) NOT NULL CHECK (telefono NOT LIKE '%[^0-9]%'),
         cbu_cvu CHAR(22) NOT NULL UNIQUE CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
         CONSTRAINT pk_Persona PRIMARY KEY (dni)
     )
 END
 
-CREATE UNIQUE INDEX UX_Persona_EmailTrim
-ON Personas.Persona(email_trim)
+-- Indice único solo sobre emails reales (permite múltiples NULL)
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = 'UX_Persona_EmailTrim' 
+      AND object_id = OBJECT_ID('Personas.Persona')
+)
+BEGIN
+    CREATE UNIQUE INDEX UX_Persona_EmailTrim
+    ON Personas.Persona(email_trim)
+    WHERE email IS NOT NULL;
+END;
 
 IF OBJECT_ID('Personas.PersonaEnUF', 'U') IS NULL
 BEGIN
@@ -183,12 +192,6 @@ BEGIN
     )
 END
 
-/*
-Numero de factura siento que no deberia ser INT, deberia ser CHAR
-Basado en los archivos, GastoOrdinario, quizas deberia ser que cada campo sea el tipoDeGasto, y periodo (mes+ano)?
-Cambiaria y en lugar de relacionarlo con la expensa, lo relacionaria con el consorcio. Porque de la otra manera, 
-no puedo crear un gasto ordinario sin antes crear una expensa
-*/
 IF OBJECT_ID('Gastos.GastoOrdinario', 'U') IS NULL
 BEGIN
     CREATE TABLE Gastos.GastoOrdinario (
