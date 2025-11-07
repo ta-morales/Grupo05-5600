@@ -1,9 +1,11 @@
 /* ============================ Ejecución con rutas locales ============================ */
 USE Grupo05_5600;
 
-DECLARE @ruta VARCHAR(200) = 'H:\Users\Morrones\Downloads\consorcios'
+DECLARE @ruta VARCHAR(200) = 'C:\SQL_SERVER_IMPORTS'
 
-EXEC LogicaBD.sp_ImportarConsorciosYEdificios;
+EXEC LogicaBD.sp_InsertarEnConsorcio
+	@rutaArchivo = @ruta,
+	@nombreArchivo = 'datos varios.xlsx';
 
 EXEC LogicaBD.sp_ImportarInquilinosPropietarios
   @rutaArchivo = @ruta,
