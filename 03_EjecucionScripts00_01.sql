@@ -2,7 +2,7 @@
 USE Grupo05_5600
 GO
 
-DECLARE @ruta VARCHAR(200) = 'C:\sqlserverimports'
+DECLARE @ruta VARCHAR(200) = 'C:\SQL_SERVER_IMPORTS'
 
 EXEC LogicaBD.sp_InsertarEnConsorcio
 	@rutaArchivo = @ruta,
@@ -33,6 +33,8 @@ EXEC LogicaBD.sp_GenerarExpensa
 EXEC LogicaBD.sp_ImportarPagos
   @rutaArchivo = @ruta,
   @nombreArchivo = 'pagos_consorcios.csv';
+
+SELECT * FROM Finanzas.Pagos
 
 
 /* Esto es para generar mejor el detalle expensa */

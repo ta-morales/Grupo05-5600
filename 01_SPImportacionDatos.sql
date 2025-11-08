@@ -55,12 +55,12 @@ BEGIN
     IF LEFT(@ruta,1) = '"' AND RIGHT(@ruta,1) = '"'
         SET @ruta = SUBSTRING(@ruta, 2, LEN(@ruta)-2);
 
-    SET @ruta = REPLACE(@ruta, '/', '\\');
+    SET @ruta = REPLACE(@ruta, '/', '\');
 
-    WHILE LEN(@ruta) > 0 AND RIGHT(@ruta,1) = '\\'
+    WHILE LEN(@ruta) > 0 AND RIGHT(@ruta,1) = '\'
         SET @ruta = LEFT(@ruta, LEN(@ruta)-1);
 
-    SET @ruta = @ruta + '\\';
+    SET @ruta = @ruta + '\';
     RETURN @ruta;
 END
 GO
