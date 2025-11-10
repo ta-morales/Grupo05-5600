@@ -96,13 +96,13 @@ IF OBJECT_ID('Infraestructura.UnidadFuncional', 'U') IS NULL
 BEGIN
     CREATE TABLE Infraestructura.UnidadFuncional(
         id INT IDENTITY(1,1),
-        piso CHAR(2) CHECK (piso LIKE 'PB' OR piso BETWEEN '01' AND '99'),
-        departamento CHAR(1) CHECK (departamento LIKE '[A-Z]'),
+        piso CHAR(2) NOT NULL CHECK (piso LIKE 'PB' OR piso BETWEEN '01' AND '99'),
+        departamento CHAR(1) NOT NULL CHECK (departamento LIKE '[A-Z]'),
         dimension DECIMAL(5,2) NOT NULL,
         m2Cochera DECIMAL(5,2),
         m2Baulera DECIMAL(5,2),
         porcentajeParticipacion DECIMAL(4,2) NOT NULL CHECK (porcentajeParticipacion > 0 AND porcentajeParticipacion <= 100),
-        cbu_cvu CHAR(22) NOT NULL UNIQUE CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
+        cbu_cvu CHAR(22) NULL CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
         idConsorcio INT,
         CONSTRAINT pk_UF PRIMARY KEY (id),
         CONSTRAINT fk_UF_Consorcio FOREIGN KEY (idConsorcio) REFERENCES Administracion.Consorcio(id),
@@ -137,6 +137,7 @@ BEGIN
     WHERE email IS NOT NULL;
 END;
 
+
 IF OBJECT_ID('Personas.PersonaEnUF', 'U') IS NULL
 BEGIN
     CREATE TABLE Personas.PersonaEnUF(
@@ -163,6 +164,7 @@ END
 CREATE UNIQUE INDEX UX_PersonaEnUF_Activa 
 ON Personas.PersonaEnUF(dniPersona, idUF) 
 WHERE fechaHasta IS NULL;
+
 
 -- Incluye Expensa, DetalleExpensa, GastoOrdinario, GastoExtraordinario, EnvioExpensa
 IF OBJECT_ID('Gastos.Expensa', 'U') IS NULL
@@ -242,6 +244,7 @@ END
 CREATE UNIQUE INDEX UX_DetalleExpensa_ExpensaUF
 ON Gastos.DetalleExpensa(idExpensa, idUF);
 
+
 IF OBJECT_ID('Gastos.EnvioExpensa', 'U') IS NULL
 BEGIN
     CREATE TABLE Gastos.EnvioExpensa (
@@ -274,11 +277,11 @@ BEGIN
 		monto DECIMAL(10,2) NOT NULL CHECK(monto >0),
 		cuentaBancaria VARCHAR(22) NOT NULL,
 		valido BIT NOT NULL,
-		idExpensa INT,
-		idUF INT,
+		idExpensa INT NOT NULL,
+		idUF INT NOT NULL,
+
 		CONSTRAINT pk_Pagos PRIMARY KEY (id),
 		CONSTRAINT fk_Pagos_Expensa FOREIGN KEY (idExpensa) REFERENCES Gastos.Expensa(id),
 		CONSTRAINT fk_Pagos_UF FOREIGN KEY (idUF) REFERENCES Infraestructura.UnidadFuncional(id)
 	)
 END
-

@@ -8,45 +8,30 @@ EXEC LogicaBD.sp_InsertaConsorcioProveedor
 	@rutaArchivo = @ruta,
 	@nombreArchivo = 'datos varios.xlsx';
 
-SELECT * FROM Administracion.Consorcio
-SELECT * FROM ##datosProveedores
+EXEC LogicaBD.sp_InsertarUnidadesFuncionales
+  @rutaArchivo = @ruta,
+  @nombreArchivo = 'UF por consorcio.txt'
 
 EXEC LogicaBD.sp_ImportarInquilinosPropietarios
   @rutaArchivo = @ruta,
   @nombreArchivo = 'Inquilino-propietarios-UF.csv';
 
-EXEC LogicaBD.sp_InsertarUnidadesFuncionales
-  @rutaArchivo = @ruta,
-  @nombreArchivo = 'UF por consorcio.txt'
-
 EXEC LogicaBD.sp_ImportarDatosInquilinos
   @rutaArchivo = @ruta,
   @nombreArchivo = 'Inquilino-propietarios-datos.csv';
 
---EXEC LogicaBD.sp_ImportarProveedores
---  @rutaArchivo = @ruta,
---  @nombreArchivo = 'datos varios.xlsx';
-
-DECLARE @ruta VARCHAR(200) = 'C:\SQL_SERVER_IMPORTS'
 
 EXEC LogicaBD.sp_ImportarGastosOrdinarios
   @rutaArchivo = @ruta,
   @nombreArchivo = 'Servicios.Servicios.json';
 
-SELECT * FROM Gastos.GastoOrdinario
-
-
-
-EXEC LogicaBD.sp_GenerarExpensa
-
 EXEC LogicaBD.sp_ImportarPagos
   @rutaArchivo = @ruta,
   @nombreArchivo = 'pagos_consorcios.csv';
 
-SELECT * FROM Gastos.DetalleExpensa
-SELECT * FROM Gastos.Expensa
+EXEC LogicaBD.sp_GenerarExpensa
 
-/* Esto es para generar mejor el detalle
+-- Esto es para generar mejor el detalle
 /*
 WITH cteGastos AS
 (
@@ -104,3 +89,4 @@ FROM (
     ) AS sub1
 GO
 */
+

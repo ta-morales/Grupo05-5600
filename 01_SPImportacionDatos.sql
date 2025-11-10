@@ -1,4 +1,4 @@
-USE Grupo05_5600
+	USE Grupo05_5600
 GO
 
 EXECUTE sp_configure 'show advanced options', 1;
@@ -359,50 +359,7 @@ BEGIN
 END
 GO
 
-CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarInquilinosPropietarios
-@rutaArchivo VARCHAR(100),
-@nombreArchivo VARCHAR(100)
-AS
-BEGIN
-    SET NOCOUNT ON;
 
-    DECLARE 
-            @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
-            @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'csv');
-    
-    IF (@ruta IS NULL OR @ruta = '' OR @archivo = '')
-    BEGIN
-        RETURN;
-    END;
-
-    DECLARE @rutaArchivoCompleto VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
-
-    IF OBJECT_ID('tempdb..##temporalInquilinosPropietariosCSV') IS NOT NULL
-    BEGIN
-        DROP TABLE ##temporalInquilinosPropietariosCSV
-    END
-
-    CREATE TABLE ##temporalInquilinosPropietariosCSV (
-        cvu VARCHAR(100),
-        consorcio VARCHAR(100),
-        nroUF VARCHAR(5),
-        piso VARCHAR(5),
-        dpto VARCHAR(5)
-    )
-
-    DECLARE @sql NVARCHAR(MAX) = N'
-        BULK INSERT ##temporalInquilinosPropietariosCSV
-        FROM ''' + @rutaArchivoCompleto + '''
-        WITH (
-            FIELDTERMINATOR = ''|'',
-            ROWTERMINATOR = ''\n'',
-            CODEPAGE = ''65001'',
-            FIRSTROW = 2
-        )';
-    
-    EXEC sp_executesql @sql;
-END
-GO
 
 CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarUnidadesFuncionales
   @rutaArchivo VARCHAR(100),
@@ -428,15 +385,15 @@ BEGIN
 
   CREATE TABLE #temporalUF (
     nombreConsorcio VARCHAR(100),
-    uF VARCHAR(10),
+    nroUF VARCHAR(10),
     piso VARCHAR(10),
     dpto VARCHAR(10),
     coeficiente VARCHAR(10),
-    m2UF INT,
+    m2UF VARCHAR(10),
     baulera CHAR(2),
     cochera CHAR(2),
-    m2Baulera INT,
-    m2Cochera INT
+    m2Baulera VARCHAR(10),
+    m2Cochera VARCHAR(10)
   );
 
   DECLARE @sql NVARCHAR(MAX) = N'
@@ -451,71 +408,112 @@ BEGIN
   EXEC sp_executesql @sql;
 
   DELETE FROM #temporalUF 
-  WHERE nombreConsorcio IS NULL OR LTRIM(RTRIM(nombreConsorcio)) = '';
+  WHERE nombreConsorcio IS NULL OR LTRIM(RTRIM(nombreConsorcio)) = '' OR nroUF IS NULL 
+		OR piso IS NULL OR dpto IS NULL OR coeficiente IS NULL OR m2UF IS NULL;
 
-  UPDATE uf
-  SET
-    uf.dimension = CAST(t.m2UF AS DECIMAL(5,2)),
-    uf.m2Cochera = t.m2Cochera,
-    uf.m2Baulera = t.m2Baulera,
-    uf.porcentajeParticipacion = CAST(REPLACE(t.coeficiente, ',', '.') AS DECIMAL(4,2)),
-    uf.cbu_cvu  = COALESCE(tpi.cvu, uf.cbu_cvu)
-  FROM Infraestructura.UnidadFuncional uf
-  INNER JOIN Administracion.Consorcio c ON c.id = uf.idConsorcio
-  INNER JOIN #temporalUF t ON t.nombreConsorcio = c.nombre
-                           AND CAST(t.piso AS CHAR(2)) = uf.piso
-                           AND CAST(t.dpto AS CHAR(1)) = uf.departamento
-  LEFT JOIN ##temporalInquilinosPropietariosCSV AS tpi
-         ON tpi.consorcio = t.nombreConsorcio
-        AND tpi.piso      = t.piso
-        AND tpi.dpto      = t.dpto
-  WHERE
-    (
-      tpi.cvu IS NULL
-      OR NOT EXISTS (
-            SELECT 1
-            FROM Infraestructura.UnidadFuncional x
-            WHERE x.cbu_cvu = tpi.cvu AND x.id <> uf.id
-      )
-    );
+  UPDATE #temporalUF
+  SET nombreConsorcio = LTRIM(RTRIM(nombreConsorcio)),
+	  nroUF = LTRIM(RTRIM(nroUF)),
+	  piso = LTRIM(RTRIM(piso)),
+	  dpto = LTRIM(RTRIM(dpto)),
+	  coeficiente = LTRIM(RTRIM(coeficiente)),
+	  m2UF = LTRIM(RTRIM(m2UF)),
+	  baulera = NULLIF(LTRIM(RTRIM(baulera)),''),
+	  cochera = NULLIF(LTRIM(RTRIM(cochera)),''),
+	  m2Baulera = REPLACE(LTRIM(RTRIM(m2Baulera)), '', 0),
+	  m2Cochera = REPLACE(LTRIM(RTRIM(m2Cochera)), '', 0)
+
+	SELECT t.nombreConsorcio, c.id AS idConsorcio
+	FROM #temporalUF t
+	LEFT JOIN Administracion.Consorcio c ON c.nombre = t.nombreConsorcio
+	WHERE c.id IS NULL;
+
 
   INSERT INTO Infraestructura.UnidadFuncional
-    (piso, departamento, dimension, m2Cochera, m2Baulera, porcentajeParticipacion, cbu_cvu, idConsorcio)
+    (piso, departamento, dimension, m2Cochera, m2Baulera, porcentajeParticipacion, idConsorcio)
   SELECT
     CAST(t.piso AS CHAR(2)) AS piso,
     CAST(t.dpto AS CHAR(1)) AS departamento,
     CAST(t.m2UF AS DECIMAL(5,2)) AS dimension,
-    t.m2Cochera,
-    t.m2Baulera,
-    CAST(REPLACE(t.coeficiente, ',', '.') AS DECIMAL(4,2)) AS porcentajeParticipacion,
-    tpi.cvu AS cbu_cvu,
+    CASE WHEN UPPER(t.cochera) IN ('SI', 'SÍ') THEN CAST(LogicaNormalizacion.fn_ToDecimal(t.m2Cochera) AS DECIMAL(5,2)) ELSE 0 END,
+	CASE WHEN UPPER(t.baulera) IN ('SI', 'SÍ') THEN CAST(LogicaNormalizacion.fn_ToDecimal(t.m2Baulera) AS DECIMAL(5,2)) ELSE 0 END,
+    CAST(LogicaNormalizacion.fn_ToDecimal(t.coeficiente) AS DECIMAL(4,2)) AS porcentajeParticipacion,
     c.id
   FROM #temporalUF t
-  INNER JOIN Administracion.Consorcio c ON c.nombre = t.nombreConsorcio
-  LEFT JOIN ##temporalInquilinosPropietariosCSV AS tpi
-         ON tpi.consorcio = t.nombreConsorcio
-        AND tpi.piso      = t.piso
-        AND tpi.dpto      = t.dpto
-  WHERE tpi.cvu IS NOT NULL
-    AND NOT EXISTS (
-          SELECT 1
-          FROM Infraestructura.UnidadFuncional uf
-          WHERE uf.idConsorcio = c.id
-            AND uf.piso = CAST(t.piso AS CHAR(2))
-            AND uf.departamento = CAST(t.dpto AS CHAR(1))
-    )
-    AND NOT EXISTS (
-          SELECT 1
-          FROM Infraestructura.UnidadFuncional x
-          WHERE x.cbu_cvu = tpi.cvu
-    );
-
-  IF (OBJECT_ID('tempdb..##temporalInquilinosPropietariosCSV') IS NOT NULL)
-  BEGIN
-    DROP TABLE ##temporalInquilinosPropietariosCSV;
-  END
+  INNER JOIN Administracion.Consorcio c ON LTRIM(RTRIM(LOWER(c.nombre))) = LTRIM(RTRIM(LOWER(t.nombreConsorcio)))
+  WHERE c.id IS NOT NULL
+	  AND NOT EXISTS (
+		  SELECT 1
+		  FROM Infraestructura.UnidadFuncional uf
+		  WHERE uf.idConsorcio = c.id
+			AND uf.piso = CAST(t.piso AS CHAR(2))
+			AND uf.departamento = CAST(t.dpto AS CHAR(1))
+	  );
 END
 GO
+
+
+
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarInquilinosPropietarios
+@rutaArchivo VARCHAR(100),
+@nombreArchivo VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE 
+            @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
+            @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'csv');
+    
+    IF (@ruta IS NULL OR @ruta = '' OR @archivo = '')
+    BEGIN
+        RETURN;
+    END;
+
+    DECLARE @rutaArchivoCompleto VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
+
+    IF OBJECT_ID('tempdb..#temporalInquilinosPropietariosCSV') IS NOT NULL
+    BEGIN
+        DROP TABLE #temporalInquilinosPropietariosCSV
+    END
+
+    CREATE TABLE #temporalInquilinosPropietariosCSV (
+        cvu VARCHAR(100),
+        consorcio VARCHAR(100),
+        nroUF VARCHAR(5),
+        piso VARCHAR(5),
+        dpto VARCHAR(5)
+    )
+
+    DECLARE @sql NVARCHAR(MAX) = N'
+        BULK INSERT #temporalInquilinosPropietariosCSV
+        FROM ''' + @rutaArchivoCompleto + '''
+        WITH (
+            FIELDTERMINATOR = ''|'',
+            ROWTERMINATOR = ''\n'',
+            CODEPAGE = ''65001'',
+            FIRSTROW = 2
+        )';
+    
+    EXEC sp_executesql @sql;
+
+	UPDATE iuf
+	SET iuf.cbu_cvu = CAST(t.cvu AS CHAR(22))
+	FROM #temporalInquilinosPropietariosCSV t
+	INNER JOIN Administracion.Consorcio ac ON LTRIM(RTRIM(LOWER(ac.nombre))) = LTRIM(RTRIM(LOWER(t.consorcio)))
+	INNER JOIN Infraestructura.UnidadFuncional iuf ON iuf.idConsorcio = ac.id AND LTRIM(RTRIM(iuf.piso)) = LTRIM(RTRIM(t.piso)) 
+				AND LTRIM(RTRIM(iuf.departamento)) = LTRIM(RTRIM(UPPER(t.dpto)))
+	WHERE t.cvu IS NOT NULL AND (iuf.cbu_cvu IS NULL OR iuf.cbu_cvu <> t.cvu);
+
+	IF (OBJECT_ID('tempdb..#temporalInquilinosPropietariosCSV') IS NOT NULL)
+	  BEGIN
+		DROP TABLE #temporalInquilinosPropietariosCSV;
+	  END
+	END
+GO
+
+
+
 
 CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarDatosInquilinos
 @rutaArchivo VARCHAR(100),
@@ -546,7 +544,7 @@ BEGIN
         email VARCHAR(100),
         telefono VARCHAR(100),
         cvu VARCHAR(100),
-        inquilino VARCHAR(100)
+        inquilino char(1)
     );
 
     DECLARE @sql NVARCHAR(MAX) = N'
@@ -572,9 +570,9 @@ BEGIN
 
     DELETE FROM #temporalInquilinosCSV 
     WHERE nombre IS NULL OR apellido IS NULL OR dni IS NULL OR cvu IS NULL OR inquilino IS NULL 
-        OR email IS NULL OR telefono IS NULL OR LEN(telefono) <> 10 OR telefono LIKE '%[^0-9]%' OR LEN(cvu) <> 22 
+        OR telefono IS NULL OR telefono LIKE '%[^0-9]%' OR LEN(telefono) <> 10 OR LEN(cvu) <> 22
         OR cvu LIKE '%[^0-9]%';
-    
+		
     ;WITH dni_repetidos AS
     (
         SELECT *, ROW_NUMBER() OVER (PARTITION BY dni ORDER BY dni, email) AS filasDni
@@ -594,78 +592,46 @@ BEGIN
     )
     DELETE FROM email_repetidos WHERE filasEmail > 1;
 
-    UPDATE #temporalInquilinosCSV
-    SET email = LOWER(LTRIM(RTRIM(email)));
+	UPDATE #temporalInquilinosCSV
+		SET 
+			cvu = REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(REPLACE(cvu,CHAR(13),''))), ' ', ''), '.', ''), CHAR(9), ''),
+			dni = REPLACE(REPLACE(LTRIM(RTRIM(REPLACE(dni,CHAR(13),''))), ' ', ''), '.', ''),
+			email = LOWER(LTRIM(RTRIM(email)));
+
+	DELETE FROM #temporalInquilinosCSV
+		WHERE inquilino NOT IN ('0','1');
+
+
+    INSERT INTO Personas.Persona (dni, nombre, apellido, email, telefono, cbu_cvu)
+	SELECT S.dni, S.nombre, S.apellido, S.email, S.telefono, CAST(S.cvu AS CHAR(22))
+	FROM #temporalInquilinosCSV S
+	WHERE NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.dni = S.dni)
+	  AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.cbu_cvu = S.cvu)
+	  AND (S.email IS NULL OR NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.email_trim = LOWER(LTRIM(RTRIM(S.email)))));
     
-    BEGIN TRY
-        INSERT INTO Personas.Persona (dni, nombre, apellido, email, telefono, cbu_cvu)
-        SELECT S.dni, S.nombre, S.apellido, S.email, S.telefono, S.cvu
-        FROM #temporalInquilinosCSV S
-        WHERE NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.DNI = S.dni)
-            AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.cbu_cvu = S.cvu)
-            AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.email_trim = S.email);
-    END TRY
-    BEGIN CATCH
-        IF ERROR_NUMBER() IN (2601,2627)
-        BEGIN
-            UPDATE P
-            SET P.nombre = S.nombre,
-                P.apellido = S.apellido,
-                P.email = CASE 
-                                WHEN NOT EXISTS (SELECT 1 FROM Personas.Persona X
-                                                 WHERE X.email_trim = S.email
-                                                   AND X.dni <> P.dni)
-                                THEN COALESCE(S.email, P.email)
-                                ELSE P.email
-                              END,
-                P.telefono = COALESCE(S.telefono, P.telefono),
-                P.cbu_cvu = COALESCE(S.cvu, P.cbu_cvu)
-            FROM Personas.Persona P
-            JOIN #temporalInquilinosCSV S ON P.DNI = S.dni;
-        END
-        ELSE
-            THROW;
-    END CATCH;
+	SELECT COUNT(*) AS totalFilas, 
+		   SUM(CASE WHEN UF.id IS NOT NULL THEN 1 ELSE 0 END) AS conUF
+	FROM #temporalInquilinosCSV T
+	LEFT JOIN Infraestructura.UnidadFuncional UF ON UF.cbu_cvu = T.cvu;
 
     INSERT INTO Personas.PersonaEnUF 
     (dniPersona, idUF, inquilino, fechaDesde, fechaHasta)
-    SELECT  P.DNI AS dniPersona,
+    SELECT  T.dni AS dniPersona,
             UF.id AS idUF,                      
             CAST(T.inquilino AS bit) AS inquilino,              
             GETDATE() AS fechaDesde,
             NULL AS fechaHasta
     FROM #temporalInquilinosCSV T
-    JOIN Personas.Persona P	ON P.DNI = T.dni
-    JOIN Infraestructura.UnidadFuncional UF	ON UF.cbu_cvu = P.cbu_cvu
+    JOIN Infraestructura.UnidadFuncional UF	ON UF.cbu_cvu = T.cvu
     WHERE NOT EXISTS (
         SELECT 1
         FROM Personas.PersonaEnUF X
-        WHERE X.dniPersona = P.DNI AND X.idUF = UF.id AND X.fechaHasta IS NULL
+        WHERE X.dniPersona = T.dni AND X.idUF = UF.id AND X.fechaHasta IS NULL
     );
 END
 GO
 
---CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarProveedores 
---@rutaArchivo VARCHAR(100),
---@nombreArchivo VARCHAR(100)
---AS
---BEGIN
---	SET NOCOUNT ON;
 
---	DECLARE @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
---            @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'xlxs'),
---			@fullpath VARCHAR(200),
---			@sql      NVARCHAR(MAX);
-
---    IF (@ruta = '' OR @archivo = '')
---    BEGIN
---        RETURN;
---    END;
-
-
-
---END
---GO
 
 CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarGastosExtraordinarios
 @idCons INT,
@@ -707,13 +673,14 @@ BEGIN
                                                         WHEN 4 THEN 'recepcion'
                                                         WHEN 5 THEN 'jardines'
                                                         ELSE 'sistema de seguridad'
-                                                    END
+                                                 END
             DECLARE @detalle VARCHAR(200) = CASE ( 
                                                 SELECT FLOOR(RAND() * (2 - 1 + 1)) + 1 )
                                                 WHEN 1 THEN CONCAT('Reparacion de ', @estructura, '.') 
-                                                ELSE CONCAT('Construccion de ', @estructura, ' agregada al complejo.')
+                                                ELSE CONCAT('Construccion de ', @estructura, ' agregada al complejo.'
+												)
                                             END
-
+											
             -- Importe
             DECLARE @impMin DECIMAL(10,2) = 9999999.99
             DECLARE @impMax DECIMAL(10,2) = 100000.00
@@ -1013,8 +980,8 @@ BEGIN
         CONCAT(RIGHT('0' + CAST(U.mes AS VARCHAR(2)), 2), CAST(YEAR(GETDATE()) AS VARCHAR(4))) AS Periodo,
         U.SumaOrd,
         U.SumaExtra,
-        CAST(GETDATE() AS DATE)                         AS PrimerV,
-        CAST(DATEADD(DAY, 7, GETDATE()) AS DATE)        AS SegundoV,
+        CAST(DATEADD(DAY, 5, GETDATE()) AS DATE)                         AS PrimerV,
+        CAST(DATEADD(DAY, 10, GETDATE()) AS DATE)        AS SegundoV,
         U.idConsorcio
     FROM U
     WHERE NOT EXISTS (
@@ -1037,7 +1004,7 @@ BEGIN
     CREATE TABLE #temporalPagos (
         id CHAR(5),
         fecha VARCHAR(10),
-        claveBancaria VARCHAR(22),
+        cvu VARCHAR(22),
         monto VARCHAR(20)
     );
 
@@ -1065,17 +1032,17 @@ BEGIN
 		SET 
 			id = LTRIM(RTRIM(id)),
 			fecha = LTRIM(RTRIM(fecha)),
-			claveBancaria = LTRIM(RTRIM(claveBancaria)),
+			cvu = LTRIM(RTRIM(cvu)),
 			monto = LogicaNormalizacion.fn_ToDecimal(monto);
+
+	UPDATE #temporalPagos
+        SET cvu = NULL
+        WHERE cvu LIKE '%[^0-9]%' OR LEN(cvu) <> 22;
 
 	DELETE FROM #temporalPagos
 		WHERE NULLIF(fecha,'') IS NULL
-			OR NULLIF(claveBancaria,'') IS NULL
+			OR NULLIF(cvu,'') IS NULL
 			OR NULLIF(monto,'') IS NULL;
-
-	UPDATE #temporalPagos
-        SET claveBancaria = NULL
-        WHERE claveBancaria NOT LIKE '%[0-9]%' OR LEN(claveBancaria) <> 22;
 
 
     INSERT INTO Finanzas.Pagos
@@ -1086,25 +1053,23 @@ BEGIN
         idExpensa,
         idUF) 
     SELECT 
-        TRY_CONVERT(DATE, fecha, 103), 
+        TRY_CONVERT(DATE, tP.fecha, 103), 
         tP.monto, 
-        tP.claveBancaria, 
+        tP.cvu, 
         CASE 
-			WHEN uf.id IS NULL OR e.id IS NULL OR tP.claveBancaria IS NULL THEN 0 
+			WHEN uf.id IS NULL OR e.id IS NULL OR tP.cvu IS NULL THEN 0 
 			ELSE 1 
 		END AS valido, 
         e.id, 
         uf.id
     FROM #temporalPagos as tP
-    LEFT JOIN Infraestructura.UnidadFuncional as uf
-        ON uf.cbu_cvu = tP.claveBancaria
-    LEFT JOIN Administracion.Consorcio as c
-        ON uf.idConsorcio = c.id
-    LEFT JOIN Gastos.Expensa as e
-        ON e.idConsorcio = c.id
-       AND e.periodo = (
-            RIGHT('0' + CAST(MONTH(TRY_CONVERT(DATE, fecha, 103)) AS VARCHAR(2)),2)
-            + CAST(YEAR(TRY_CONVERT(DATE, fecha, 103)) AS VARCHAR(4))
-        );
+    LEFT JOIN Infraestructura.UnidadFuncional as uf	ON uf.cbu_cvu = tP.cvu
+    LEFT JOIN Administracion.Consorcio as c	ON uf.idConsorcio = c.id
+    LEFT JOIN Gastos.Expensa e ON e.idConsorcio = c.id
+       AND e.periodo = CAST(
+            RIGHT('0' + CAST(MONTH(TRY_CONVERT(DATE, tP.fecha, 103)) AS VARCHAR(2)),2)
+            + CAST(YEAR(TRY_CONVERT(DATE, tP.fecha, 103)) AS VARCHAR(4)) as CHAR(6)
+		);
+
 END
 GO
