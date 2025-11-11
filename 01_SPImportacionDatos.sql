@@ -1,14 +1,6 @@
 	USE Grupo05_5600
 GO
 
-EXECUTE sp_configure 'show advanced options', 1;
-RECONFIGURE;
-GO
-
-EXECUTE sp_configure 'Ad Hoc Distributed Queries', 1;
-RECONFIGURE;
-GO
-
 /* ======================== Funciones de Normalización ======================== */
 IF SCHEMA_ID('LogicaNormalizacion') IS NULL EXEC('CREATE SCHEMA LogicaNormalizacion');
 IF SCHEMA_ID('LogicaBD') IS NULL EXEC('CREATE SCHEMA LogicaBD');
@@ -603,21 +595,49 @@ BEGIN
 	  AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.cbu_cvu = S.cvu)
 	  AND (S.email IS NULL OR NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.email_trim = LOWER(LTRIM(RTRIM(S.email)))));
 
-
-    INSERT INTO Personas.PersonaEnUF 
-    (dniPersona, idUF, inquilino, fechaDesde, fechaHasta)
-    SELECT  T.dni AS dniPersona,
-            UF.id AS idUF,                      
-            CAST(T.inquilino AS bit) AS inquilino,              
-            GETDATE() AS fechaDesde,
-            NULL AS fechaHasta
-    FROM #temporalInquilinosCSV T
-    JOIN Infraestructura.UnidadFuncional UF	ON UF.cbu_cvu = T.cvu
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM Personas.PersonaEnUF X
-        WHERE X.dniPersona = T.dni AND X.idUF = UF.id AND X.fechaHasta IS NULL
+    -- Materializamos los potenciales nuevos vínculos para reutilizarlos en múltiples sentencias
+    IF OBJECT_ID('tempdb..#Nuevos') IS NOT NULL DROP TABLE #Nuevos;
+    CREATE TABLE #Nuevos(
+      dniPersona VARCHAR(9),
+      idUF INT,
+      inquilino BIT
     );
+    INSERT INTO #Nuevos(dniPersona, idUF, inquilino)
+    SELECT DISTINCT 
+      T.dni              AS dniPersona,
+      UF.id              AS idUF,
+      CAST(T.inquilino AS bit) AS inquilino
+    FROM #temporalInquilinosCSV T
+    JOIN Infraestructura.UnidadFuncional UF ON UF.cbu_cvu = T.cvu;
+
+    -- Cerrar activo del mismo rol en la misma UF si es OTRO DNI
+    UPDATE pe
+      SET pe.fechaHasta = CASE 
+                            WHEN CAST(GETDATE() AS DATE) > pe.fechaDesde 
+                              THEN CAST(GETDATE() AS DATE)
+                            ELSE DATEADD(DAY, 1, pe.fechaDesde) -- evita violar CK (>)
+                          END
+    FROM Personas.PersonaEnUF pe
+    JOIN #Nuevos n
+      ON n.idUF = pe.idUF
+     AND n.inquilino = pe.inquilino
+    WHERE pe.fechaHasta IS NULL
+      AND pe.dniPersona <> n.dniPersona;
+
+    -- Insertar solo si esa misma persona no está activa en ese rol/UF
+    INSERT INTO Personas.PersonaEnUF (dniPersona, idUF, inquilino, fechaDesde, fechaHasta)
+    SELECT n.dniPersona, n.idUF, n.inquilino, CAST(GETDATE() AS DATE), NULL
+    FROM #Nuevos n
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM Personas.PersonaEnUF x
+      WHERE x.idUF = n.idUF
+        AND x.inquilino = n.inquilino
+        AND x.fechaHasta IS NULL
+        AND x.dniPersona = n.dniPersona
+    );
+
+    DROP TABLE #Nuevos;
 END
 GO
 
