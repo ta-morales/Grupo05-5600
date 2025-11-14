@@ -488,5 +488,113 @@ BEGIN
 		END
 	END CATCH
 END
+GO
 
+CREATE OR ALTER PROCEDURE Gastos.sp_AgregarGastoExtraordinario
+	@mes INT,
+	@detalle VARCHAR(200),
+	@importe DECIMAL(10,2),
+	@formaPago VARCHAR(6),
+	@nroCuotaAPagar INT,
+	@nroTotalCuotas INT,
+	@idConsorcio INT
+AS
+BEGIN
+	BEGIN TRY
+		SET NOCOUNT ON;
+		DECLARE 
+			@ID INT,
+			@consorcioExiste INT;
+
+		SET @detalle   = LTRIM(RTRIM(@detalle));
+        SET @formaPago = CASE WHEN UPPER(LTRIM(RTRIM(@formaPago)))='CUOTAS' THEN 'Cuotas' ELSE 'Total' END;
+
+		SELECT @ID = id
+		FROM Gastos.GastoExtraordinario
+		WHERE mes = @mes AND idConsorcio = @idConsorcio AND detalle = @detalle
+
+		IF @ID IS NOT NULL
+		BEGIN
+			PRINT('El pago extraordinario con este detalle ya existe');
+			RAISERROR('.', 16, 1);
+		END
+
+		IF @idConsorcio IS NULL OR @idConsorcio <= 0
+		BEGIN
+		 PRINT('Consorcio invalido');
+		 RAISERROR('.', 16, 1);
+		END
+
+		SELECT @consorcioExiste = id
+		FROM Administracion.Consorcio
+		WHERE id = @idConsorcio
+
+		IF @consorcioExiste IS NULL
+		BEGIN
+		 PRINT('El consorcio al cual quiere asignar el gasto extraordinario no existe');
+		 RAISERROR('.', 16, 1);
+		END
+
+		IF @mes IS NULL OR @mes < 1 OR @mes > 12
+		BEGIN
+		 PRINT('Mes invalido');
+		 RAISERROR('.', 16, 1);
+		END
+
+		IF @detalle = '' OR LEN(@detalle) > 200 OR @detalle IS NULL
+		BEGIN
+		 PRINT('Detalle invalido');
+		 RAISERROR('.', 16, 1);
+		END
+            
+		IF @importe IS NULL OR @importe <= 0 OR @importe > 99999999.99
+		BEGIN
+		 PRINT('Importe invalido');
+		 RAISERROR('.', 16, 1);
+		END
+
+		IF @formaPago NOT IN ('Cuotas','Total')
+		BEGIN
+		 PRINT('Forma de pago invalida');
+		 RAISERROR('.', 16, 1);
+		END
+
+		IF @formaPago='Cuotas'
+        BEGIN
+            IF @nroTotalCuotas IS NULL OR @nroTotalCuotas <= 0
+				BEGIN
+					PRINT('El numero total de cuotas debe ser mayor a cero')
+					RAISERROR('.', 16, 1);
+				END
+
+            IF @nroCuotaAPagar IS NULL OR @nroCuotaAPagar <= 0 OR @nroCuotaAPagar > @nroTotalCuotas
+                BEGIN
+					PRINT('El numero de cuota a pagar debe estar entre 1 y el numero total de cuotas')
+					RAISERROR('.', 16, 1);
+				END
+        END
+        ELSE  -- 'Total'
+        BEGIN
+            SET @nroCuotaAPagar = 1;
+            SET @nroTotalCuotas = 1;
+        END
+
+		INSERT INTO Gastos.GastoExtraordinario
+            (mes, detalle, importe, formaPago, nroCuotaAPagar, nroTotalCuotas, idConsorcio)
+        VALUES
+            (@mes, @detalle, @importe, @formaPago, @nroCuotaAPagar, @nroTotalCuotas, @idConsorcio);
+
+		PRINT('Gasto extraordinario insertado exitosamente');
+
+        SET @ID = SCOPE_IDENTITY();
+        SELECT @ID AS id;
+	END TRY
+
+	BEGIN CATCH
+		BEGIN	
+			RAISERROR('Algo salio mal en el registro de gasto extraordinario', 16, 1);
+			RETURN;
+		END
+	END CATCH
+END
 
