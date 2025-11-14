@@ -21,7 +21,7 @@ USE master
 USE Com5600G05
 GO
 
--- Tabla Consorcios
+-- Inserta datos en Tabla Tabla Consorcios
 CREATE OR ALTER PROCEDURE Administracion.sp_AgregarConsorcio
 	@nombre VARCHAR(100),
 	@direccion VARCHAR(100),
@@ -83,7 +83,7 @@ BEGIN
 END
 GO
 
--- Tabla Unidad funcional
+-- Inserta datos en Tabla Unidad funcional
 CREATE OR ALTER PROCEDURE Infraestructura.sp_AgregarUnidadFuncional
 	@piso CHAR(2),
 	@departamento CHAR(1),
@@ -196,7 +196,7 @@ BEGIN
 END
 GO
 
--- Tabla Persona
+-- Inserta datos en Tabla Tabla Persona
 CREATE OR ALTER PROCEDURE Personas.sp_AgregarPersona
 	@dni VARCHAR(9),
 	@nombre VARCHAR(50),
@@ -292,7 +292,7 @@ BEGIN
 END
 GO
 
--- Tabla Persona En UF
+-- Inserta datos en Tabla Tabla Persona En UF
 CREATE OR ALTER PROCEDURE Personas.sp_AgregarPersonaEnUF
 	@dniPersona VARCHAR(9),
 	@idUF INT,
@@ -388,7 +388,7 @@ BEGIN
 END
 GO
 
--- Tabla Gasto Ordinario
+-- Inserta datos en Tabla Tabla Gasto Ordinario
 CREATE OR ALTER PROCEDURE Gastos.AgregarGastoOrdinario
 	@mes INT,
 	@tipoGasto VARCHAR(50),
