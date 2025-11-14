@@ -26,6 +26,7 @@ IF SCHEMA_ID('LogicaNormalizacion') IS NULL EXEC('CREATE SCHEMA LogicaNormalizac
 IF SCHEMA_ID('LogicaBD') IS NULL EXEC('CREATE SCHEMA LogicaBD');
 GO
 
+--Normaliza nombre y extension de archivo;
 CREATE OR ALTER FUNCTION LogicaNormalizacion.fn_NormalizarNombreArchivoCSV
 (
     @nombreArchivo VARCHAR(100),
@@ -54,6 +55,7 @@ BEGIN
 END
 GO
 
+--Normaliza ruta (quita comillas, usa '\', remueve barra final).
 CREATE OR ALTER FUNCTION LogicaNormalizacion.fn_NormalizarRutaArchivo
 ( @rutaArchivo VARCHAR(100) )
 RETURNS VARCHAR(100)
@@ -77,6 +79,7 @@ BEGIN
 END
 GO
 
+--Convierte nombre de mes a numerico.
 CREATE OR ALTER FUNCTION LogicaNormalizacion.fn_NumeroMes
 ( @mes VARCHAR(15) )
 RETURNS INT
@@ -103,6 +106,7 @@ BEGIN
 END
 GO
 
+--Convierte texto a decimal
 CREATE OR ALTER FUNCTION LogicaNormalizacion.fn_ToDecimal
 (
     @s VARCHAR(200)
@@ -227,6 +231,7 @@ END
 GO
 
 /* =============================== Triggers =============================== */
+--Genera tabla DetalleExpensa
 CREATE OR ALTER TRIGGER Gastos.tg_CrearDetalleExpensa 
 ON Gastos.Expensa
 AFTER INSERT
@@ -362,6 +367,8 @@ END
 GO
 
 /* =============================== Procedimientos =============================== */
+
+--Importa desde Excel a tabla Consorcio.
 CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertaConsorcioProveedor 
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
@@ -439,6 +446,7 @@ BEGIN
 END
 GO
 
+--Importa desde archivo de texto a tabla UnidadFuncionales
 CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarUnidadesFuncionales
   @rutaArchivo VARCHAR(100),
   @nombreArchivo VARCHAR(100)
@@ -525,6 +533,7 @@ BEGIN
 END
 GO
 
+--Importa desde archivo csv a tabla temporal de relacion persona con uf
 CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarInquilinosPropietarios
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
@@ -583,6 +592,7 @@ BEGIN
 	END
 GO
 
+--Importa desde archivo csv a tabla persona y a personaEnUF
 CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarDatosInquilinos
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
@@ -722,6 +732,7 @@ BEGIN
 END
 GO
 
+--Importa desde archivo json a tabla GastosExtraordinarios
 CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarGastosExtraordinarios
 @idCons INT,
 @mesGasto INT
@@ -779,7 +790,7 @@ BEGIN
 END
 GO
 
-/* Modificado: sp_ImportarGastosOrdinarios parametrizado y sin duplicados de expensas */
+--Importa desde archivo json a tabla GastosOrdinarios
 CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarGastosOrdinarios 
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
@@ -1032,6 +1043,7 @@ BEGIN
 END
 GO
 
+--Genera la tabla de expensas
 CREATE OR ALTER PROCEDURE LogicaBD.sp_GenerarExpensa
 AS
 BEGIN
@@ -1099,7 +1111,7 @@ BEGIN
 END
 GO
 
-/* Modificado: sp_ImportarPagos parametrizado, sin insertar IDENTITY y con join corregido a expensa por periodo */
+--Importa desde archivo Excel a tabla Pagos
 CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarPagos
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
