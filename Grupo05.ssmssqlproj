@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<SqlWorkbenchSqlProject xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Name="Grupo05">
+  <Items>
+    <LogicalFolder Name="Conexiones" Type="2" Sorted="true">
+      <Items>
+        <ConnectionNode Name="MORRONES\SQLEXPRESS:MORRONES\Morrones">
+          <Created>2025-11-12T11:33:39.70262-03:00</Created>
+          <Type>SQL</Type>
+          <Server>MORRONES\SQLEXPRESS</Server>
+          <UserName />
+          <Authentication>Autenticación de Windows</Authentication>
+          <InitialDB>master</InitialDB>
+          <LoginTimeout>30</LoginTimeout>
+          <TrustServerCertificate>True</TrustServerCertificate>
+          <HostNameInServerCertificate />
+          <EncryptionOption>True</EncryptionOption>
+          <ExecutionTimeout>0</ExecutionTimeout>
+          <ConnectionProtocol>NotSpecified</ConnectionProtocol>
+          <ApplicationName>Microsoft SQL Server Management Studio - Consulta</ApplicationName>
+        </ConnectionNode>
+      </Items>
+    </LogicalFolder>
+    <LogicalFolder Name="Consultas" Type="0" Sorted="true">
+      <Items>
+        <FileNode Name="00_CreacionTablas.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:MORRONES\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>MORRONES\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>00_CreacionTablas.sql</FullPath>
+        </FileNode>
+        <FileNode Name="01_CreacionLogicaImportacion.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:MORRONES\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>MORRONES\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>01_CreacionLogicaImportacion.sql</FullPath>
+        </FileNode>
+        <FileNode Name="02_EjecucionImportacion.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:MORRONES\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>MORRONES\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>02_EjecucionImportacion.sql</FullPath>
+        </FileNode>
+        <FileNode Name="04_CreacionSPParaAgregado.sql">
+          <AssociatedConnectionMoniker />
+          <AssociatedConnSrvName />
+          <AssociatedConnUserName />
+          <FullPath>04_CreacionSPParaAgregado.sql</FullPath>
+        </FileNode>
+        <FileNode Name="Deudas.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:MORRONES\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>MORRONES\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>Deudas.sql</FullPath>
+        </FileNode>
+        <FileNode Name="Entrega05.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:MORRONES\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>MORRONES\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>Entrega05.sql</FullPath>
+        </FileNode>
+      </Items>
+    </LogicalFolder>
+    <LogicalFolder Name="Varios" Type="3" Sorted="true">
+      <Items />
+    </LogicalFolder>
+  </Items>
+</SqlWorkbenchSqlProject>

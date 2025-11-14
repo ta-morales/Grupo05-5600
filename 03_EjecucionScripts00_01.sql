@@ -9,7 +9,7 @@
 USE Com5600G05
 GO
 
-DECLARE @ruta VARCHAR(200) = 'C:\SQL_SERVER_IMPORTS'
+DECLARE @ruta VARCHAR(200) = 'C:\archivos'
 
 EXEC LogicaBD.sp_InsertaConsorcioProveedor
 	@rutaArchivo = @ruta,

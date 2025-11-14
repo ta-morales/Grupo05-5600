@@ -146,6 +146,74 @@ BEGIN
 END
 GO
 
+CREATE OR ALTER FUNCTION LogicaBD.fn_EsFeriado
+( @fecha DATE )
+RETURNS BIT 
+AS
+BEGIN
+	DECLARE @obj INT
+	DECLARE @url VARCHAR(100)
+	DECLARE @retorno VARCHAR(8000)
+
+	SET @url = 'https://argentinaferiados-api.vercel.app/2025'
+
+	EXEC sp_OACreate 'MSXML2.XMLHTTP', @obj OUTPUT
+
+	EXEC sp_OAMethod @obj, 'open', NULL, 'GET', @url, 'false'
+
+	EXEC sp_OAMethod @obj, 'send'
+
+	EXEC sp_OAMethod @obj, 'responseText', @retorno OUTPUT
+
+	EXEC sp_OADestroy @obj
+
+	DECLARE @fechaBusc DATE = DATEFROMPARTS(2025,11,21)
+	DECLARE @esFeriado BIT = 0
+
+	IF EXISTS (
+		SELECT 1
+		FROM OPENJSON(@retorno)
+		WITH(
+			fecha VARCHAR(10) '$.fecha',
+			tipo VARCHAR(20) '$.tipo',
+			motivo VARCHAR(200) '$.nombre'
+		) AS F
+		WHERE CAST(F.fecha AS DATE) = @fecha
+	)
+		SET @esFeriado = 1
+	RETURN @esFeriado
+END
+GO
+
+CREATE OR ALTER FUNCTION LogicaBD.fn_ObtenerFechaVencimiento
+( @fecha DATE )
+RETURNS DATE
+AS
+BEGIN
+    DECLARE @esFeriado BIT
+    SET @esFeriado = 
+                CASE 
+                    WHEN LogicaBD.fn_EsFeriado(@fecha) = 1 
+                        OR DATEPART(WEEKDAY, @fecha) IN (1,6)
+                    THEN 0
+                    ELSE 1
+                END
+    DECLARE @fechaFinal DATE = @fecha
+    WHILE @esFeriado = 0
+    BEGIN
+        SET @fechaFinal = DATEADD(DAY, 1, @fechaFinal)
+        SET @esFeriado = 
+                CASE 
+                    WHEN LogicaBD.fn_EsFeriado(@fechaFinal) = 1 
+                        OR DATEPART(WEEKDAY, @fechaFinal) IN (1,6)
+                    THEN 1
+                    ELSE 0
+                END
+    END
+    RETURN @fechaFinal
+END
+GO
+
 /* =============================== Triggers =============================== */
 CREATE OR ALTER TRIGGER Gastos.tg_CrearDetalleExpensa 
 ON Gastos.Expensa
@@ -995,6 +1063,27 @@ BEGIN
           AND ex.idConsorcio = U.idConsorcio
     );
 
+    
+    WITH cteFechasVenc AS
+    (
+        SELECT 
+            id,
+            LogicaBD.fn_ObtenerFechaVencimiento(primerVencimiento) as [PrimerVenc],
+            LogicaBD.fn_ObtenerFechaVencimiento(segundoVencimiento) as [SegundoVenc]
+        FROM (
+            SELECT DISTINCT
+                id,
+                primerVencimiento,
+                segundoVencimiento
+            FROM Gastos.Expensa
+        ) AS sub1
+    )
+    UPDATE ex
+    SET
+        primerVencimiento = PrimerVenc,
+        segundoVencimiento = SegundoVenc
+    FROM Gastos.Expensa as ex INNER JOIN cteFechasVenc as cte 
+        ON ex.id = cte.id
 END
 GO
 

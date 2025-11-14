@@ -4,10 +4,43 @@
   Script a ejecutar antes: 00_CreacionDeTablas.sql
   */
 
-
-
 USE Com5600G05
 GO
+
+CREATE OR ALTER PROCEDURE LogicaBD.sp_PrecioDolarHoy
+    @precioDolar DECIMAL(10,2) OUTPUT
+AS
+BEGIN
+	DECLARE @obj INT
+	DECLARE @url VARCHAR(100)
+	DECLARE @retorno VARCHAR(200)
+
+	SET @url = 'https://dolarapi.com/v1/dolares/oficial'
+
+	EXEC sp_OACreate 'MSXML2.XMLHTTP', @obj OUTPUT
+
+	EXEC sp_OAMethod @obj, 'open', NULL, 'GET', @url, 'false'
+
+	EXEC sp_OAMethod @obj, 'send'
+
+	EXEC sp_OAMethod @obj, 'responseText', @retorno OUTPUT
+
+	EXEC sp_OADestroy @obj
+
+    
+    SELECT @precioDolar = venta
+    FROM OPENJSON(@retorno)
+    WITH (
+        moneda VARCHAR(3) '$.moneda',
+        casa VARCHAR(10) '$.casa',
+        nombre VARCHAR(10) '$.nombre',
+        compra DECIMAL(18,2) '$.compra',
+        venta DECIMAL(18,2) '$.venta',
+        fecha DATETIME '$.fechaActualizacion'
+    )
+END
+GO
+
 
 CREATE OR ALTER FUNCTION LogicaBD.sumarGastoOrdinario
 (
@@ -26,7 +59,7 @@ BEGIN
       AND gor.idConsorcio = @cons;
 
     RETURN ISNULL(@monto, 0);
-END;
+END
 GO
 
 CREATE OR ALTER FUNCTION LogicaBD.sumarGastoExtraordinario
@@ -46,7 +79,7 @@ BEGIN
       AND geor.idConsorcio = @cons;
 
     RETURN ISNULL(@monto, 0);
-END;
+END
 GO
 
 CREATE OR ALTER FUNCTION LogicaBD.sumarPagosHastaMes
@@ -69,8 +102,59 @@ BEGIN
 END;
 GO
 
+CREATE OR ALTER PROCEDURE LogicaBD.CreacionIndicesAuxiliares
+AS
+BEGIN
+    IF EXISTS (SELECT 1 
+           FROM sys.indexes 
+           WHERE name = 'ix_UF_idConsorcio_Piso_Depto' 
+             AND object_id = OBJECT_ID('Infraestructura.UnidadFuncional'))
+    BEGIN
+        DROP INDEX ix_UF_idConsorcio_Piso_Depto
+        ON Infraestructura.UnidadFuncional;
+    END
+    CREATE NONCLUSTERED INDEX ix_UF_idConsorcio_Piso_Depto 
+    ON Infraestructura.UnidadFuncional(idConsorcio, piso, departamento); 
+
+    IF EXISTS (SELECT 1 
+           FROM sys.indexes 
+           WHERE name = 'ix_PAGOS_fecha_uf_expensa' 
+             AND object_id = OBJECT_ID('Finanzas.Pagos'))
+    BEGIN
+        DROP INDEX ix_PAGOS_fecha_uf_expensa
+        ON Finanzas.Pagos;
+    END
+    CREATE NONCLUSTERED INDEX ix_PAGOS_fecha_uf_expensa 
+    ON Finanzas.Pagos(idUF, idExpensa, fecha); 
+
+    IF EXISTS (SELECT 1 
+           FROM sys.indexes 
+           WHERE name = 'ix_CONSORCIO_nombre' 
+             AND object_id = OBJECT_ID('Administracion.Consorcio'))
+    BEGIN
+        DROP INDEX ix_CONSORCIO_nombre
+        ON Administracion.Consorcio;
+    END
+    CREATE NONCLUSTERED INDEX ix_CONSORCIO_nombre 
+    ON Administracion.Consorcio(nombre); 
+
+    IF EXISTS (SELECT 1 
+           FROM sys.indexes 
+           WHERE name = 'ix_EXPENSA_periodo_idConsorcio' 
+             AND object_id = OBJECT_ID('Gastos.Expensa'))
+    BEGIN
+        DROP INDEX ix_EXPENSA_periodo_idConsorcio
+        ON Gastos.Expensa;
+    END
+
+    CREATE NONCLUSTERED INDEX ix_EXPENSA_periodo_idConsorcio 
+    ON Gastos.Expensa(periodo, idConsorcio) 
+    INCLUDE (totalGastoOrdinario, totalGastoExtraordinario);
+END
+GO
+
 -- CODIGO PARA INFORME 01: PAGOS ORDINARIOS Y EXTRAORDINARIOS POR SEMANA
-CREATE OR ALTER PROCEDURE sp_Informe01
+CREATE OR ALTER PROCEDURE LogicaBD.sp_Informe01
 @mesInicio INT = NULL , 
 @mesFinal INT = NULL,
 @nombreConsorcio VARCHAR(100) = NULL,
@@ -93,11 +177,11 @@ BEGIN
         FROM Finanzas.Pagos
     )
     SELECT
-        DATEPART(WEEK, fecha) AS NSem,
-        c.nombre as 'Consorcio',
-        CONCAT(TRIM(uf.piso), '-', uf.departamento) as 'Piso - Depto.',
-        SUM(CASE WHEN NroPago = 1 THEN monto ELSE 0 END) AS PagosOrdinarios,
-        SUM(CASE WHEN NroPago > 1 THEN monto ELSE 0 END) AS PagosExtraordinarios
+        DATEPART(WEEK, fecha) AS [numero_semana],
+        c.nombre as [consorcio],
+        CONCAT(TRIM(uf.piso), '-', uf.departamento) as [piso_depto],
+        SUM(CASE WHEN NroPago = 1 THEN monto ELSE 0 END) AS [pagos_ordinarios],
+        SUM(CASE WHEN NroPago > 1 THEN monto ELSE 0 END) AS [pagos_extraordinarios]
     FROM cteTiposPagos AS cte
     LEFT JOIN Infraestructura.UnidadFuncional AS uf ON cte.idUF = uf.id
     LEFT JOIN Administracion.Consorcio AS c ON uf.idConsorcio = c.id
@@ -106,12 +190,12 @@ BEGIN
       AND (@piso IS NULL OR RTRIM(CAST(uf.piso  AS CHAR(2))) = @piso)
       AND (@departamento IS NULL OR RTRIM(UPPER(uf.departamento)) = @departamento)
     GROUP BY DATEPART(WEEK, fecha), c.nombre, CONCAT(TRIM(uf.piso), '-', uf.departamento)
+    FOR XML AUTO, ELEMENTS
 END
-
 GO
 
 -- CODIGO PARA INFORME 02: PIVOT DE MES Y PAGOS
-CREATE OR ALTER PROCEDURE sp_Informe02
+CREATE OR ALTER PROCEDURE LogicaBD.sp_Informe02
 @consorcio VARCHAR(100) = NULL,
 @piso CHAR(2) = NULL,
 @depto CHAR(1) = NULL
@@ -121,9 +205,9 @@ BEGIN
     (
         SELECT 
             MONTH(pg.fecha) AS mes, 
-            c.nombre AS 'Consorcio',
-            CONCAT(TRIM(uf.piso), '-', uf.departamento) AS 'Depto', 
-            pg.monto as 'Monto'
+            c.nombre AS [consorcio],
+            CONCAT(TRIM(uf.piso), '-', uf.departamento) AS [piso_depto], 
+            pg.monto as [monto]
         FROM Finanzas.Pagos AS pg 
         INNER JOIN Infraestructura.UnidadFuncional AS uf
             ON pg.idUF = uf.id
@@ -135,8 +219,8 @@ BEGIN
             (@depto IS NULL OR @depto = uf.departamento)
     )
     SELECT 
-        Consorcio,
-        Depto,
+        [consorcio],
+        [piso_depto],
         ISNULL([1],0) AS [Ene],
         ISNULL([2],0) AS [Feb],
         ISNULL([3],0) AS [Mar],
@@ -154,19 +238,23 @@ BEGIN
         SUM(Monto)
         FOR mes IN ([1],[2],[3],[4],[5],[6],[7],[8],[9],[10],[11],[12])
     ) AS p
-    ORDER BY Consorcio, Depto;
+    ORDER BY [consorcio], [piso_depto]
+    FOR XML AUTO, ELEMENTS
 END
 GO
 
-IF OBJECT_ID('sp_Informe03', 'P') IS NOT NULL
-    DROP PROCEDURE sp_Informe03;
+IF OBJECT_ID('LogicaBD.sp_Informe03', 'P') IS NOT NULL
+    DROP PROCEDURE LogicaBD.sp_Informe03;
 GO
 
 -- CODIGO PARA INFORME 03: PIVOT DE MES Y TIPO DE GASTO
-CREATE PROCEDURE sp_Informe03
+CREATE PROCEDURE LogicaBD.sp_Informe03
 AS
 BEGIN       
     SET NOCOUNT ON
+    DECLARE @precio DECIMAL(10,2)
+    EXEC LogicaBD.sp_PrecioDolarHoy @precioDolar = @precio OUTPUT
+
     ;WITH cteTiposPagos AS
     (
         SELECT 
@@ -184,9 +272,12 @@ BEGIN
 
     SELECT 
         Periodo,
-        ISNULL([Ordinario], 0) AS [Pagos ordinarios],
-        ISNULL([Extraordinario], 0) AS [Pagos extraordinarios],
-        (ISNULL([Ordinario],0) + ISNULL([Extraordinario],0)) AS [Pagos totales]
+        ISNULL([Ordinario], 0) AS [Pagos ordinarios $],
+        ISNULL([Extraordinario], 0) AS [Pagos extraordinarios $],
+        (ISNULL([Ordinario],0) + ISNULL([Extraordinario],0)) AS [Pagos totales $],
+        CAST((ISNULL([Ordinario], 0) / @precio) AS DECIMAL(10,2)) AS [Pagos ordinarios U$D],
+        CAST((ISNULL([Extraordinario], 0) / @precio) AS DECIMAL(10,2)) AS [Pagos extraordinarios U$D],
+        CAST(((ISNULL([Ordinario],0) + ISNULL([Extraordinario],0)) / @precio) AS DECIMAL(10,2)) AS [Pagos totales U$D]
     FROM cteTiposPagos AS cte
     PIVOT (
         sum(monto)
@@ -195,7 +286,8 @@ BEGIN
 END
 GO
 
-CREATE OR ALTER PROCEDURE sp_Informe04
+-- CODIGO PARA INFORME 04: INGRESOS Y EGRESOS POR MES
+CREATE OR ALTER PROCEDURE LogicaBD.sp_Informe04
 ( 
     @fechaInicio DATE = NULL,
     @fechaFin DATE = NULL,
@@ -204,6 +296,8 @@ CREATE OR ALTER PROCEDURE sp_Informe04
 AS
 BEGIN
     DECLARE @idConsorcio INT = NULL;
+    DECLARE @precio DECIMAL(10,2)
+    EXEC LogicaBD.sp_PrecioDolarHoy @precioDolar = @precio OUTPUT
 
     IF @nombreConsorcio IS NOT NULL
     BEGIN
@@ -214,8 +308,10 @@ BEGIN
 
     SELECT 
         ex.periodo,
-        (totalGastoExtraordinario + totalGastoOrdinario) as [Gastos],
-        ing.[Ingresos]
+        (totalGastoExtraordinario + totalGastoOrdinario) as [Gastos $],
+        ing.[Ingresos] AS [Ingresos $],
+        CAST((totalGastoExtraordinario + totalGastoOrdinario) / @precio AS DECIMAL(10,2)) as [Gastos U$D],
+        CAST(ing.[Ingresos] / @precio AS DECIMAL(10,2)) AS [Ingresos U$D]
     FROM Gastos.Expensa as ex
     INNER JOIN (
         SELECT
@@ -238,12 +334,69 @@ BEGIN
 END
 GO
 
-EXEC sp_Informe01
+-- CODIGO PARA INFORME 06: DIFERENCIA DE DIAS ENTRE PAGOS 
+IF OBJECT_ID('LogicaBD.sp_Informe06', 'P') IS NOT NULL 
+    DROP PROCEDURE LogicaBD.sp_Informe06; 
+GO 
 
-EXEC sp_Informe01 @mesInicio = 4, @mesFinal = 5, @nombreConsorcio = 'Azcuenaga', @piso = 'PB', @departamento = 'E'
+CREATE PROCEDURE LogicaBD.sp_Informe06 
+( @nombreConsorcio VARCHAR(100) = NULL, 
+@piso CHAR(2) = NULL, 
+@departamento CHAR(1) = NULL ) 
+AS BEGIN
+SELECT 
+    c.nombre as [consorcio], 
+    CONCAT(TRIM(uf.piso), '-', uf.departamento) AS [piso_depto], 
+    sub1.fecha, 
+    ISNULL( 
+        DATEDIFF( 
+            DAY, 
+            LAG(sub1.fecha,1,null) OVER (PARTITION BY idUF,MONTH(fecha) ORDER BY idUF, fecha), 
+            sub1.fecha ) 
+        ,0) as [dias_entre_pagos], 
+    ISNULL( 
+        DATEDIFF( 
+            DAY, 
+            LAG(sub1.fecha,1,null) OVER (PARTITION BY idUF ORDER BY idUF, fecha), 
+            sub1.fecha )
+        ,0) as [dias_entre_pagos_2] 
+    FROM ( 
+        SELECT 
+            pg.idUF, 
+            ex.idConsorcio, 
+            ex.totalGastoOrdinario, 
+            pg.fecha, 
+            ex.periodo 
+        FROM Gastos.Expensa as ex INNER JOIN ( 
+            SELECT 
+                *, 
+                ROW_NUMBER() 
+                    OVER (PARTITION BY fecha, idUF, idExpensa ORDER BY fecha) AS NroPago FROM Finanzas.Pagos ) AS pg 
+        ON ex.id = pg.idExpensa 
+        WHERE pg.NroPago = 1 ) AS sub1 
+        INNER JOIN Infraestructura.UnidadFuncional as uf 
+            ON sub1.idUF = uf.id
+        INNER JOIN Administracion.Consorcio as c 
+            ON sub1.idConsorcio = c.id 
+        WHERE 
+            (@departamento IS NULL OR LOWER(@departamento) = uf.departamento) AND 
+            (@piso IS NULL OR LOWER(@piso) = uf.piso) AND 
+            (@nombreConsorcio IS NULL OR @nombreConsorcio = c.nombre) 
+        ORDER BY sub1. idUF, sub1.periodo, sub1.fecha 
+END 
+GO 
 
-EXEC sp_Informe02
+EXEC LogicaBD.sp_Informe01
 
-EXEC sp_Informe03
+EXEC LogicaBD.sp_Informe01 @mesInicio = 4, @mesFinal = 5, @nombreConsorcio = 'Azcuenaga', @piso = 'PB', @departamento = 'E'
 
-EXEC sp_Informe04 @nombreConsorcio = 'azcuenaga'
+EXEC LogicaBD.sp_Informe02
+
+EXEC LogicaBD.sp_Informe03
+
+EXEC LogicaBD.sp_Informe04 @nombreConsorcio = 'azcuenaga'
+
+EXEC LogicaBD.sp_Informe06
+
+
+EXEC LogicaBD.CreacionIndicesAuxiliares
