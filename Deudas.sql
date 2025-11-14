@@ -133,11 +133,11 @@ SELECT
 	[ID UF],
 	[ID EX],
 	[Monto Base],
-	LAG([DeudaSegVenc], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID UF]) AS [Deuda],
-	LAG([InteresSegundaDeuda], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID UF]) AS [Interes],
+    LAG([DeudaSegVenc], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID EX]) AS [Deuda],
+    LAG([InteresSegundaDeuda], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID EX]) AS [Interes],
 	(
-		LAG([NuevoMontoSV], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID UF])
-	-	LAG([Pagado_S_F], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID UF])
+        LAG([NuevoMontoSV], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID EX])
+	-	LAG([Pagado_S_F], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID EX])
 	+	[Monto Base]
 	) as [Total a Pagar]
 FROM cteFormateoDeuda

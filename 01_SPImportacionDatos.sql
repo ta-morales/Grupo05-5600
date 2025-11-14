@@ -144,7 +144,11 @@ BEGIN
     END
     ELSE IF (@iCom = 0)
     BEGIN
-        SET @tmp = REPLACE(@n, ',', '');
+        -- Solo hay punto: si parece separador de miles (grupos de 3), quitar puntos; si no, dejar como decimal
+        IF @n LIKE '%.[0-9][0-9][0-9]' AND @n NOT LIKE '%.%.[0-9][0-9]'
+            SET @tmp = REPLACE(@n, '.', '');
+        ELSE
+            SET @tmp = @n;
     END
     ELSE
     BEGIN
@@ -1123,7 +1127,7 @@ BEGIN
         id CHAR(5),
         fecha VARCHAR(10),
         cvu VARCHAR(22),
-        monto VARCHAR(20)
+        monto VARCHAR(50)
     );
 
     DECLARE @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
@@ -1147,11 +1151,11 @@ BEGIN
     EXEC sp_executesql @sql;
     
     UPDATE #temporalPagos
-		SET 
-			id = LTRIM(RTRIM(id)),
-			fecha = LTRIM(RTRIM(fecha)),
-			cvu = LTRIM(RTRIM(cvu)),
-			monto = LogicaNormalizacion.fn_ToDecimal(monto);
+        SET 
+            id    = LTRIM(RTRIM(id)),
+            fecha = LTRIM(RTRIM(fecha)),
+            cvu   = LTRIM(RTRIM(cvu  )),
+            monto = LogicaNormalizacion.fn_ToDecimal(monto);
 
 	UPDATE #temporalPagos
         SET cvu = NULL
@@ -1165,19 +1169,19 @@ BEGIN
 
     INSERT INTO Finanzas.Pagos
         (fecha,
-        monto,
-        cuentaBancaria,
-        valido,
-        idExpensa,
-        idUF) 
+         monto,
+         cuentaBancaria,
+         valido,
+         idExpensa,
+         idUF) 
     SELECT 
         TRY_CONVERT(DATE, tP.fecha, 103), 
         tP.monto, 
         tP.cvu, 
-        CASE 
-			WHEN uf.id IS NULL OR e.id IS NULL OR tP.cvu IS NULL THEN 0 
-			ELSE 1 
-		END AS valido, 
+         CASE
+             WHEN uf.id IS NULL OR e.id IS NULL OR tP.cvu IS NULL THEN 0
+             ELSE 1
+        END AS valido, 
         e.id, 
         uf.id
     FROM #temporalPagos as tP
@@ -1190,3 +1194,4 @@ BEGIN
 		);
 END
 GO
+

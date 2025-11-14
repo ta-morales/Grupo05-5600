@@ -52,6 +52,7 @@ EXEC LogicaBD.sp_ImportarPagos
   @rutaArchivo = @ruta,
   @nombreArchivo = 'pagos_consorcios.csv';
 
+  -- SELECT * FROM Finanzas.Pagos;
 -- Esto es para generar mejor el detalle
 /*
 WITH cteGastos AS
