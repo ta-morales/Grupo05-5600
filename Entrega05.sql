@@ -1,3 +1,11 @@
+  /*
+  Nombre: Entrega05.sql
+  Proposito: Creacion de reportes/informes de pagos y gastos.
+  Script a ejecutar antes: 00_CreacionDeTablas.sql
+  */
+
+
+
 USE Com5600G05
 GO
 
@@ -62,7 +70,6 @@ END;
 GO
 
 -- CODIGO PARA INFORME 01: PAGOS ORDINARIOS Y EXTRAORDINARIOS POR SEMANA
-
 CREATE OR ALTER PROCEDURE sp_Informe01
 @mesInicio INT = NULL , 
 @mesFinal INT = NULL,

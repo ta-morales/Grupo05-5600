@@ -1,4 +1,12 @@
-	USE Com5600G05
+
+  /*
+  Nombre: 01_SPImportacionDatos.sql
+  Proposito: Crear funciones de para importar los archivos
+  (datos varios.xlsx - UF por consorcio.txt - Inquilino-propietarios-UF.csv - Inquilino-propietarios-datos.csv - Servicios.Servicios.json - pagos_consorcios.csv)
+  Script a ejecutar antes: 00_CreacionDeTablas.sql
+  */
+
+USE Com5600G05
 GO
 
 /* ======================== Funciones de Normalización ======================== */
@@ -633,8 +641,6 @@ BEGIN
     DROP TABLE #Nuevos;
 END
 GO
-
-
 
 CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarGastosExtraordinarios
 @idCons INT,

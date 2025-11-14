@@ -1,3 +1,10 @@
+  /*
+  Nombre: Deudas.sql
+  Proposito: Crear funciones y consulta para calcular deudas/intereses por UF y expensa.
+  Script a ejecutar antes: 00_CreacionDeTablas.sql
+  */
+
+
 USE Com5600G05
 GO
 

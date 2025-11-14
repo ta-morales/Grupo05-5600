@@ -1,5 +1,12 @@
+  /*
+  Nombre: 03_EjecucionScripts00_01.sql
+  Proposito: Ejecutables de los SP de importacion.
+  Script a ejecutar antes: 01_SPImportacionDatos.sql
+  */
+
+
 /* ============================ Ejecución con rutas locales ============================ */
-USE Grupo05_5600
+USE Com5600G05
 GO
 
 DECLARE @ruta VARCHAR(200) = 'C:\SQL_SERVER_IMPORTS'

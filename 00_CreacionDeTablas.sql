@@ -1,5 +1,10 @@
--- CREACION DE BBDD --
+ /*
+  Nombre: 00_CreacionDeTablas.sql
+  Proposito: Crear esquemas, tablas, condiciones e indices base.
+  Script a ejecutar antes: Ninguno.
+  */
 
+-- CREACION DE BBDD --
 IF DB_ID('auxiliarDB') IS NULL
 BEGIN
     CREATE DATABASE auxiliarDB

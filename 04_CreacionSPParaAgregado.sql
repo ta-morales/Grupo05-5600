@@ -1,15 +1,15 @@
-
+  /*
+  Nombre: 04_CreacionSPParaAgregado.sql
+  Proposito: CREACION DE STORED PROCEDURE PARA INSERCION DE DATOS
+  Script a ejecutar antes: 00_CreacionDeTablas.sql
+  */
 
 USE master
 
 USE Com5600G05
 GO
 
-
----------- CREACION DE STORED PROCEDURE PARA INSERCION DE DATOS ----------
-
 -- Tabla Consorcios
-
 CREATE OR ALTER PROCEDURE Administracion.sp_AgregarConsorcio
 	@nombre VARCHAR(100),
 	@direccion VARCHAR(100),
@@ -280,6 +280,7 @@ BEGIN
 END
 GO
 
+-- Tabla Persona En UF
 CREATE OR ALTER PROCEDURE Personas.sp_AgregarPersonaEnUF
 	@dniPersona VARCHAR(9),
 	@idUF INT,
@@ -375,6 +376,7 @@ BEGIN
 END
 GO
 
+-- Tabla Gasto Ordinario
 CREATE OR ALTER PROCEDURE Gastos.AgregarGastoOrdinario
 	@mes INT,
 	@tipoGasto VARCHAR(50),
