@@ -1,8 +1,19 @@
-  /*
-  Nombre: 03_EjecucionScripts00_01.sql
-  Proposito: Ejecutables de los SP de importacion.
-  Script a ejecutar antes: 01_SPImportacionDatos.sql
-  */
+/*
+Enunciado: ejecucion de los scripts para la importacion,
+transformacion y carga de los datos.
+Fecha entrega:
+Comision: 5600
+Grupo: 05
+Materia: Base de datos aplicadas
+Integrantes:
+    - ERMASI, Franco: 44613354
+    - GATTI, Gonzalo: 46208638
+    - MORALES, Tomas: 40.755.243
+
+Nombre: 03_EjecucionScripts00_01.sql
+Proposito: Ejecutables de los SP de importacion.
+Script a ejecutar antes: 01_SPImportacionDatos.sql
+*/
 
 
 /* ============================ Ejecución con rutas locales ============================ */

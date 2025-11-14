@@ -1,8 +1,18 @@
- /*
-  Nombre: 00_CreacionDeTablas.sql
-  Proposito: Crear esquemas, tablas, condiciones e indices base.
-  Script a ejecutar antes: Ninguno.
-  */
+/*
+Enunciado: creacion de tablas, esquemas e indices del sistema.
+Fecha entrega:
+Comision: 5600
+Grupo: 05
+Materia: Base de datos aplicadas
+Integrantes:
+    - ERMASI, Franco: 44613354
+    - GATTI, Gonzalo: 46208638
+    - MORALES, Tomas: 40.755.243
+
+Nombre: 00_CreacionDeTablas.sql
+Proposito: Crear esquemas, tablas, condiciones e indices base.
+Script a ejecutar antes: Ninguno.
+*/
 
 -- CREACION DE BBDD --
 IF DB_ID('auxiliarDB') IS NULL

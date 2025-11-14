@@ -1,10 +1,22 @@
 
-  /*
-  Nombre: 01_SPImportacionDatos.sql
-  Proposito: Crear funciones de para importar los archivos
-  (datos varios.xlsx - UF por consorcio.txt - Inquilino-propietarios-UF.csv - Inquilino-propietarios-datos.csv - Servicios.Servicios.json - pagos_consorcios.csv)
-  Script a ejecutar antes: 00_CreacionDeTablas.sql
-  */
+/*
+Enunciado: creacion de procedures, funciones y triggers para importar 
+los archivos maestros, normalizar los datos e insertar los mismos en
+las tablas.
+Fecha entrega:
+Comision: 5600
+Grupo: 05
+Materia: Base de datos aplicadas
+Integrantes:
+    - ERMASI, Franco: 44613354
+    - GATTI, Gonzalo: 46208638
+    - MORALES, Tomas: 40.755.243
+
+Nombre: 01_SPImportacionDatos.sql
+Proposito: Crear funciones de para importar los archivos
+(datos varios.xlsx - UF por consorcio.txt - Inquilino-propietarios-UF.csv - Inquilino-propietarios-datos.csv - Servicios.Servicios.json - pagos_consorcios.csv)
+Script a ejecutar antes: 00_CreacionDeTablas.sql
+*/
 
 USE Com5600G05
 GO

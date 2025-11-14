@@ -1,4 +1,15 @@
   /*
+  Enunciado: resolucion Entrega06, generacion de los informes pedidos con
+  integracion de API para obtener precio del dolar.
+  Fecha entrega:
+  Comision: 5600
+  Grupo: 05
+  Materia: Base de datos aplicadas
+  Integrantes:
+    - ERMASI, Franco: 44613354
+    - GATTI, Gonzalo: 46208638
+    - MORALES, Tomas: 40.755.243
+
   Nombre: Entrega05.sql
   Proposito: Creacion de reportes/informes de pagos y gastos.
   Script a ejecutar antes: 00_CreacionDeTablas.sql

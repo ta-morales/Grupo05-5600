@@ -1,8 +1,20 @@
-  /*
+/*
+Enunciado: creacion de procedures para dar de alta a los
+diferentes agentes del sistema, desde consorcios hasta
+gastos.
+Fecha entrega:
+Comision: 5600
+Grupo: 05
+Materia: Base de datos aplicadas
+Integrantes:
+    - ERMASI, Franco: 44613354
+    - GATTI, Gonzalo: 46208638
+    - MORALES, Tomas: 40.755.243
+
   Nombre: 04_CreacionSPParaAgregado.sql
   Proposito: CREACION DE STORED PROCEDURE PARA INSERCION DE DATOS
   Script a ejecutar antes: 00_CreacionDeTablas.sql
-  */
+*/
 
 USE master
 
