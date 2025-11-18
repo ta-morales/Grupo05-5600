@@ -13,13 +13,12 @@ Integrantes:
     - MORALES, Tomas: 40.755.243
 
 Nombre: 01_SPImportacionDatos.sql
-Proposito: Crear funciones de para importar los archivos
+Proposito: Crear objetos para importar los datos de los archivos
 (datos varios.xlsx - UF por consorcio.txt - Inquilino-propietarios-UF.csv - Inquilino-propietarios-datos.csv - Servicios.Servicios.json - pagos_consorcios.csv)
 Script a ejecutar antes: 00_CreacionDeTablas.sql
 */
 
 
-/* ======================== Funciones de Normalización ======================== */
 USE Com5600G05
 GO
 
@@ -27,7 +26,12 @@ IF SCHEMA_ID('LogicaNormalizacion') IS NULL EXEC('CREATE SCHEMA LogicaNormalizac
 IF SCHEMA_ID('LogicaBD') IS NULL EXEC('CREATE SCHEMA LogicaBD');
 GO
 
---Normaliza nombre y extension de archivo;
+
+/*====================================================================
+                CREACION DE FUNCIONES DE NORMALIZACION                         
+====================================================================*/
+
+-- Normaliza nombre y extension de archivo
 CREATE OR ALTER FUNCTION LogicaNormalizacion.fn_NormalizarNombreArchivoCSV
 (
     @nombreArchivo VARCHAR(100),
@@ -56,7 +60,7 @@ BEGIN
 END
 GO
 
---Normaliza ruta (quita comillas, usa '\', remueve barra final).
+-- Normaliza ruta (quita comillas, usa '\', remueve barra final).
 CREATE OR ALTER FUNCTION LogicaNormalizacion.fn_NormalizarRutaArchivo
 ( @rutaArchivo VARCHAR(100) )
 RETURNS VARCHAR(100)
@@ -80,7 +84,7 @@ BEGIN
 END
 GO
 
---Convierte nombre de mes a numerico.
+-- Convierte nombre de mes a numerico.
 CREATE OR ALTER FUNCTION LogicaNormalizacion.fn_NumeroMes
 ( @mes VARCHAR(15) )
 RETURNS INT
@@ -235,145 +239,127 @@ BEGIN
 END
 GO
 
-/* =============================== Triggers =============================== */
+CREATE OR ALTER PROCEDURE LogicaBD.sp_AsociarPagosPorCuenta
+    @cuentaBancaria VARCHAR(22)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE p
+    SET 
+        p.idUF  = uf.id,
+        p.valido = 1
+    FROM Finanzas.Pagos p
+    INNER JOIN Infraestructura.UnidadFuncional uf
+        ON uf.cbu_cvu = @cuentaBancaria
+       AND p.cuentaBancaria = @cuentaBancaria
+    WHERE p.idUF IS NULL;
+END
+GO
+
+-- Suma pagos de una UF entre dos fechas
+CREATE OR ALTER FUNCTION LogicaBD.sumarPagosEntreFechas
+(
+    @fechaIni DATE,
+    @fechaFin DATE,
+    @uf INT
+)
+RETURNS DECIMAL(18,2)
+AS
+BEGIN
+    DECLARE @total DECIMAL(18,2);
+
+    SELECT @total = ISNULL(SUM(pg.monto), 0)
+    FROM Finanzas.Pagos AS pg
+    WHERE pg.fecha BETWEEN @fechaIni AND @fechaFin AND pg.idUF = @uf
+
+    RETURN @total;
+END;
+GO
+
+-- Suma pagos de una UF entre dos fechas
+CREATE OR ALTER FUNCTION LogicaBD.sumarPagosHastaFecha
+(
+    @fechaLimite DATE,
+    @uf INT
+)
+RETURNS DECIMAL(18,2)
+AS
+BEGIN
+    DECLARE @total DECIMAL(18,2);
+
+    SELECT @total = ISNULL(SUM(pg.monto), 0)
+    FROM Finanzas.Pagos AS pg
+    WHERE pg.fecha < @fechaLimite AND pg.idUF = @uf
+
+    RETURN @total;
+END;
+GO
+
+
+/*====================================================================
+                        CREACION DE TRIGGERS                         
+====================================================================*/
 --Genera tabla DetalleExpensa
-CREATE OR ALTER TRIGGER Gastos.tg_CrearDetalleExpensa 
+/*CREATE OR ALTER TRIGGER Gastos.tg_CrearDetalleExpensa 
 ON Gastos.Expensa
 AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    CREATE TABLE #auxiliarGastos (
-        idConsorcio int,
-        idExpensa INT,
-        idUF INT,
-        periodo CHAR(6),
-        monto DECIMAL(10,2),
-        mtsTotEd DECIMAL(8,2),
-        coeficienteUF DECIMAL(5,2),
-        mtsCochera DECIMAL(5,2),
-        mtsBaulera DECIMAL(5,2)
-    );
+    DECLARE @tasa_venc1 DECIMAL(10,6) = 0.02;  -- 2%
+	DECLARE @tasa_venc2 DECIMAL(10,6) = 0.05;  -- 5%
 
-    INSERT INTO #auxiliarGastos (idConsorcio, idExpensa, idUF, periodo, monto, mtsTotEd, coeficienteUF, mtsCochera, mtsBaulera)
-    SELECT
-        i.idConsorcio,  
-        i.id, 
-        uf.id, 
-        i.periodo, 
-        (i.totalGastoExtraordinario + i.totalGastoOrdinario) as monto, 
-        c.metrosTotales, 
-        uf.porcentajeParticipacion, 
-        uf.m2Cochera, 
-        uf.m2Baulera
-    FROM inserted i 
-    INNER JOIN Administracion.Consorcio c	ON i.idConsorcio = c.id
-    INNER JOIN Infraestructura.UnidadFuncional uf	ON uf.idConsorcio = c.id;
 
-	;WITH ins AS (  -- esto nos devuelve los campos: idExpensa, idConsorcio y periodo actual de insercion
-	  SELECT id AS idExpensa, idConsorcio, periodo FROM inserted
-	),
-	prev AS (      -- esto nos devuelve los campos: idExpensa, idConsorcio y periodo anterior al que insertarmos
-	  SELECT DISTINCT
-		i.idExpensa,
-		i.idConsorcio,
-		RIGHT(CONVERT(char(6),
-			  DATEADD(MONTH,-1, DATEFROMPARTS(
-				CAST(SUBSTRING(i.periodo,3,4) AS int),
-				CAST(LEFT(i.periodo,2) AS int), 1)),112),2)
-		+ LEFT(CONVERT(char(6),
-			  DATEADD(MONTH,-1, DATEFROMPARTS(
-				CAST(SUBSTRING(i.periodo,3,4) AS int),
-				CAST(LEFT(i.periodo,2) AS int), 1)),112),4) AS periodoPrev
-	  FROM ins i
-	),
-	detallePrev AS (   -- esto nos devuelve los campos: idUf, periodo de la expensa actual, monto total de la UF, primer vencimiento y segundo vencimiento de esa expensa
-	  SELECT de.idUF, e.periodo, de.montoTotal, e.primerVencimiento, e.segundoVencimiento
-	  FROM Gastos.DetalleExpensa de
-	  JOIN Gastos.Expensa e ON e.id = de.idExpensa
-	),
-	pagPrev AS (   -- esto nos devuelve: idUF, periodo del pago, el monto pagado y la fecha (agrupado por id de uf y periodo del pago)
-	  SELECT
-		p.idUF,
-		CONCAT(RIGHT('0'+CAST(MONTH(p.fecha) AS varchar(2)),2),
-			   CAST(YEAR(p.fecha)  AS char(4))) AS periodo,
-		p.fecha,
-		p.monto
-	  FROM Finanzas.Pagos p
-	),
-	deudaInteresPrev AS (
-	  SELECT
-		uf.id  AS idUF,
-		pr.idExpensa,
-		d.montoTotal,
-		d.primerVencimiento,
-		d.segundoVencimiento,
-		-- Interés según cuándo se pagó:
-		SUM(CASE WHEN pp.fecha <= d.primerVencimiento THEN pp.monto ELSE 0 END) AS pag_antes1,
-		SUM(CASE WHEN pp.fecha >  d.primerVencimiento AND pp.fecha <= d.segundoVencimiento THEN pp.monto ELSE 0 END) AS pag_entre,
-		SUM(CASE WHEN pp.fecha >  d.segundoVencimiento THEN pp.monto ELSE 0 END) AS pag_despues
-	  FROM prev pr
-	  JOIN Infraestructura.UnidadFuncional uf
-		   ON uf.idConsorcio = pr.idConsorcio
-	  LEFT JOIN detallePrev d
-		   ON d.idUF = uf.id AND d.periodo = pr.periodoPrev
-	  LEFT JOIN pagPrev pp
-		   ON pp.idUF = uf.id AND pp.periodo = pr.periodoPrev
-	  GROUP BY uf.id, pr.idExpensa, d.montoTotal, d.primerVencimiento, d.segundoVencimiento
-	),
-	calc AS (
-	  SELECT
-		idUF,
-		idExpensa,
-		CASE 
-		  WHEN montoTotal IS NULL THEN 0
-		  ELSE CASE 
-				 WHEN (montoTotal - (ISNULL(pag_antes1,0)+ISNULL(pag_entre,0)+ISNULL(pag_despues,0))) > 0
-				 THEN  (montoTotal - (ISNULL(pag_antes1,0)+ISNULL(pag_entre,0)+ISNULL(pag_despues,0)))
-				 ELSE 0
-			   END
-		END AS deudaAnterior,
-		ROUND(
-			ISNULL(pag_entre,0)  * 0.02 +
-			ISNULL(pag_despues,0)* 0.05 +
-			CASE 
-			  WHEN (ISNULL(montoTotal,0) - (ISNULL(pag_antes1,0)+ISNULL(pag_entre,0)+ISNULL(pag_despues,0))) > 0
-			  THEN (ISNULL(montoTotal,0) - (ISNULL(pag_antes1,0)+ISNULL(pag_entre,0)+ISNULL(pag_despues,0))) * 0.05
-			  ELSE 0
-			END
-		,2) AS interesDeudaAnterior
-	  FROM deudaInteresPrev
+	WITH cteDeudaAPrimerVenc AS
+	(
+		SELECT 
+			uf.id as [ID UF], 
+			ex.id as [ID EX], 
+			(ex.totalGastoExtraordinario + ex.totalGastoOrdinario) * (uf.dimension/con.metrosTotales) AS [Total Base],
+			(
+				(ex.totalGastoExtraordinario + ex.totalGastoOrdinario) * (uf.dimension / con.metrosTotales)
+				+ CASE WHEN uf.m2Cochera > 0 THEN 50000 ELSE 0 END
+				+ CASE WHEN uf.m2Baulera > 0 THEN 50000 ELSE 0 END
+			) AS [Total],
+			LogicaBD.sumarPagosEntreFechas(
+				DATEADD(DAY, 5 - DAY(ex.primerVencimiento), ex.primerVencimiento),
+				ex.primerVencimiento,
+				uf.id
+			) AS [MontoPagadoHastaPrimVenc],
+			primerVencimiento,
+			segundoVencimiento,
+			CASE WHEN uf.m2Cochera > 0 THEN 50000 ELSE 0 END as MontoCochera,
+			CASE WHEN uf.m2Baulera > 0 THEN 50000 ELSE 0 END as MontoBaulera
+		FROM inserted as ex 
+        INNER JOIN Infraestructura.UnidadFuncional AS uf
+            ON ex.idConsorcio = uf.idConsorcio
+        INNER JOIN Administracion.Consorcio con
+            ON con.id = uf.idConsorcio
 	)
-
-    INSERT INTO Gastos.DetalleExpensa
-	(montoBase, deuda, intereses, montoCochera, montoBaulera, montoTotal, estado, idExpensa, idUF)
+	
+	INSERT INTO Gastos.DetalleExpensa
+		(montoBase, montoCochera, montoBaulera, montoTotal, idExpensa, idUF)
 	SELECT
-	  CAST(g.monto * (g.coeficienteUF/100.0) AS DECIMAL(10,2)) AS MontoBase,
-	  ISNULL(calc.deudaAnterior, 0) AS Deuda, -- deuda del mes anterior
-	  CAST(ISNULL(calc.interesDeudaAnterior, 0) AS DECIMAL(10,2)) AS Intereses, -- interés por mora sobre esa deuda
-	  CASE WHEN g.mtsCochera > 0 THEN 50000 ELSE 0 END AS MontoCochera,
-	  CASE WHEN g.mtsBaulera > 0 THEN 50000 ELSE 0 END AS MontoBaulera,
-	  CAST(g.monto * (g.coeficienteUF/100.0)
-		 + CASE WHEN g.mtsCochera > 0 THEN 50000 ELSE 0 END
-		 + CASE WHEN g.mtsBaulera > 0 THEN 50000 ELSE 0 END 
-		 + COALESCE(calc.deudaAnterior, 0)
-		 + COALESCE(calc.interesDeudaAnterior, 0)
-		 AS DECIMAL(10,2)) AS MontoTotal, -- con intereses y deuda
-	  'P',
-	  g.idExpensa,
-	  g.idUF
-	FROM #auxiliarGastos g
-	LEFT JOIN calc
-		   ON calc.idUF = g.idUF AND calc.idExpensa = g.idExpensa;
+		[Total Base],
+		MontoCochera,
+		MontoBaulera,
+		[Total],
+		[ID EX],
+		[ID UF]
+	FROM cteDeudaAPrimerVenc
 
-    DROP TABLE #auxiliarGastos
 END
-GO
+GO*/
 
-/* =============================== Procedimientos =============================== */
 
---Importa desde Excel a tabla Consorcio.
+
+/*====================================================================
+                        CREACION DE PROCEDIMIENTOS                         
+====================================================================*/
+
+-- Importa desde Excel a tabla Consorcio.
 CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertaConsorcioProveedor 
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
@@ -426,7 +412,12 @@ BEGIN
         LEFT(s.nombre, 100),
         LEFT(s.domicilio, 100),
         CAST(LogicaNormalizacion.fn_ToDecimal(s.metrosTotales) AS DECIMAL(8,2))
-    FROM #ConsorciosStage s; 
+    FROM #ConsorciosStage s
+	WHERE NOT EXISTS (
+		SELECT 1 
+		FROM Administracion.Consorcio c
+		WHERE c.direccion = LEFT(s.domicilio, 100)
+	);
 
     	SET @fullpath = REPLACE(@ruta + @archivo, '''', '''''');
 
@@ -451,94 +442,95 @@ BEGIN
 END
 GO
 
---Importa desde archivo de texto a tabla UnidadFuncionales
+-- Importa desde archivo de texto a tabla UnidadFuncionales
 CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarUnidadesFuncionales
   @rutaArchivo VARCHAR(100),
   @nombreArchivo VARCHAR(100)
 AS
 BEGIN
-  SET NOCOUNT ON;
+	SET NOCOUNT ON;
 
-  DECLARE @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
-          @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'txt');
+	DECLARE @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
+			@archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'txt');
 
-  IF (@ruta = '' OR @archivo = '')
-  BEGIN
-    RETURN;
-  END;
+	IF (@ruta = '' OR @archivo = '')
+	BEGIN
+	RETURN;
+	END;
 
-  DECLARE @rutaArchivoCompleto VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
+	DECLARE @rutaArchivoCompleto VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
 
-  IF OBJECT_ID('tempdb..#temporalUF') IS NOT NULL 
-  BEGIN
-    DROP TABLE #temporalUF;
-  END
+	IF OBJECT_ID('tempdb..#temporalUF') IS NOT NULL 
+	BEGIN
+	DROP TABLE #temporalUF;
+	END
 
-  CREATE TABLE #temporalUF (
-    nombreConsorcio VARCHAR(100),
-    nroUF VARCHAR(10),
-    piso VARCHAR(10),
-    dpto VARCHAR(10),
-    coeficiente VARCHAR(10),
-    m2UF VARCHAR(10),
-    baulera CHAR(2),
-    cochera CHAR(2),
-    m2Baulera VARCHAR(10),
-    m2Cochera VARCHAR(10)
-  );
+	CREATE TABLE #temporalUF (
+	nombreConsorcio VARCHAR(100),
+	nroUF VARCHAR(10),
+	piso VARCHAR(10),
+	dpto VARCHAR(10),
+	coeficiente VARCHAR(10),
+	m2UF VARCHAR(10),
+	baulera CHAR(2),
+	cochera CHAR(2),
+	m2Baulera VARCHAR(10),
+	m2Cochera VARCHAR(10)
+	);
 
-  DECLARE @sql NVARCHAR(MAX) = N'
-    BULK INSERT #temporalUF
-    FROM ''' + @rutaArchivoCompleto + N'''
-    WITH (
-      FIELDTERMINATOR = ''\t'',
-      ROWTERMINATOR = ''\n'',
-      CODEPAGE = ''65001'',
-      FIRSTROW = 2
-    )';
-  EXEC sp_executesql @sql;
+	DECLARE @sql NVARCHAR(MAX) = N'
+	BULK INSERT #temporalUF
+	FROM ''' + @rutaArchivoCompleto + N'''
+	WITH (
+		FIELDTERMINATOR = ''\t'',
+		ROWTERMINATOR = ''\n'',
+		CODEPAGE = ''65001'',
+		FIRSTROW = 2
+	)';
+	EXEC sp_executesql @sql;
 
-  DELETE FROM #temporalUF 
-  WHERE nombreConsorcio IS NULL OR LTRIM(RTRIM(nombreConsorcio)) = '' OR nroUF IS NULL 
+	DELETE FROM #temporalUF 
+	WHERE nombreConsorcio IS NULL OR LTRIM(RTRIM(nombreConsorcio)) = '' OR nroUF IS NULL 
 		OR piso IS NULL OR dpto IS NULL OR coeficiente IS NULL OR m2UF IS NULL;
 
-  UPDATE #temporalUF
-  SET nombreConsorcio = LTRIM(RTRIM(nombreConsorcio)),
-	  nroUF = LTRIM(RTRIM(nroUF)),
-	  piso = LTRIM(RTRIM(piso)),
-	  dpto = LTRIM(RTRIM(dpto)),
-	  coeficiente = LTRIM(RTRIM(coeficiente)),
-	  m2UF = LTRIM(RTRIM(m2UF)),
-	  baulera = NULLIF(LTRIM(RTRIM(baulera)),''),
-	  cochera = NULLIF(LTRIM(RTRIM(cochera)),''),
-	  m2Baulera = REPLACE(LTRIM(RTRIM(m2Baulera)), '', 0),
-	  m2Cochera = REPLACE(LTRIM(RTRIM(m2Cochera)), '', 0)
+	UPDATE #temporalUF
+	SET nombreConsorcio = LTRIM(RTRIM(nombreConsorcio)),
+		nroUF = LTRIM(RTRIM(nroUF)),
+		piso = LTRIM(RTRIM(piso)),
+		dpto = LTRIM(RTRIM(dpto)),
+		coeficiente = LTRIM(RTRIM(coeficiente)),
+		m2UF = LTRIM(RTRIM(m2UF)),
+		baulera = NULLIF(LTRIM(RTRIM(baulera)),''),
+		cochera = NULLIF(LTRIM(RTRIM(cochera)),''),
+		m2Baulera = REPLACE(LTRIM(RTRIM(m2Baulera)), '', 0),
+		m2Cochera = REPLACE(LTRIM(RTRIM(m2Cochera)), '', 0)
 
+	
 
-  INSERT INTO Infraestructura.UnidadFuncional
-    (piso, departamento, dimension, m2Cochera, m2Baulera, porcentajeParticipacion, idConsorcio)
-  SELECT
-    CAST(t.piso AS CHAR(2)) AS piso,
-    CAST(t.dpto AS CHAR(1)) AS departamento,
-    CAST(t.m2UF AS DECIMAL(5,2)) AS dimension,
-    CASE WHEN UPPER(t.cochera) IN ('SI', 'SÍ') THEN CAST(LogicaNormalizacion.fn_ToDecimal(t.m2Cochera) AS DECIMAL(5,2)) ELSE 0 END,
+	INSERT INTO Infraestructura.UnidadFuncional
+	(piso, departamento, dimension, m2Cochera, m2Baulera, porcentajeParticipacion, idConsorcio)
+	SELECT
+	CAST(t.piso AS CHAR(2)) AS piso,
+	CAST(t.dpto AS CHAR(1)) AS departamento,
+	CAST(t.m2UF AS DECIMAL(5,2)) AS dimension,
+	CASE WHEN UPPER(t.cochera) IN ('SI', 'SÍ') THEN CAST(LogicaNormalizacion.fn_ToDecimal(t.m2Cochera) AS DECIMAL(5,2)) ELSE 0 END,
 	CASE WHEN UPPER(t.baulera) IN ('SI', 'SÍ') THEN CAST(LogicaNormalizacion.fn_ToDecimal(t.m2Baulera) AS DECIMAL(5,2)) ELSE 0 END,
-    CAST(LogicaNormalizacion.fn_ToDecimal(t.coeficiente) AS DECIMAL(4,2)) AS porcentajeParticipacion,
-    c.id
-  FROM #temporalUF t
-  INNER JOIN Administracion.Consorcio c ON LTRIM(RTRIM(LOWER(c.nombre))) = LTRIM(RTRIM(LOWER(t.nombreConsorcio)))
-  WHERE c.id IS NOT NULL
-	  AND NOT EXISTS (
-		  SELECT 1
-		  FROM Infraestructura.UnidadFuncional uf
-		  WHERE uf.idConsorcio = c.id
+	CAST(LogicaNormalizacion.fn_ToDecimal(t.coeficiente) AS DECIMAL(4,2)) AS porcentajeParticipacion,
+	c.id
+	FROM #temporalUF t
+	INNER JOIN Administracion.Consorcio c ON LTRIM(RTRIM(LOWER(c.nombre))) = LTRIM(RTRIM(LOWER(t.nombreConsorcio)))
+	WHERE c.id IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1
+			FROM Infraestructura.UnidadFuncional uf
+			WHERE uf.idConsorcio = c.id
 			AND uf.piso = CAST(t.piso AS CHAR(2))
 			AND uf.departamento = CAST(t.dpto AS CHAR(1))
-	  );
+		);
 END
 GO
 
---Importa desde archivo csv a tabla temporal de relacion persona con uf
+-- Importa desde archivo csv a tabla temporal de relacion persona con uf
 CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarInquilinosPropietarios
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
@@ -597,7 +589,7 @@ BEGIN
 	END
 GO
 
---Importa desde archivo csv a tabla persona y a personaEnUF
+-- Importa desde archivo csv a tabla persona y a personaEnUF
 CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarDatosInquilinos
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
@@ -646,7 +638,7 @@ BEGIN
     SET nombre = CONCAT(UPPER(LEFT(LTRIM(RTRIM(nombre)),1)), LOWER(SUBSTRING(LTRIM(RTRIM(nombre)),2,100))),
         apellido = CONCAT(UPPER(LEFT(LTRIM(RTRIM(apellido)),1)), LOWER(SUBSTRING(LTRIM(RTRIM(apellido)),2,100))),
         dni = REPLACE(REPLACE(LTRIM(RTRIM(dni)),' ',''),'.',''),
-        email = NULLIF(LTRIM(RTRIM(email)), ''),
+        email = NULLIF(LOWER(LTRIM(RTRIM(email))), ''),
         telefono = NULLIF(LTRIM(RTRIM(telefono)), ''),
         cvu = NULLIF(LTRIM(RTRIM(cvu)), ''),
         inquilino = LTRIM(RTRIM(inquilino));
@@ -689,21 +681,22 @@ BEGIN
 	FROM #temporalInquilinosCSV S
 	WHERE NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.dni = S.dni)
 	  AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.cbu_cvu = S.cvu)
-	  AND (S.email IS NULL OR NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.email_trim = LOWER(LTRIM(RTRIM(S.email)))));
+	  AND (S.email IS NULL OR NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.email = LOWER(LTRIM(RTRIM(S.email)))));
 
     -- Materializamos los potenciales nuevos vínculos para reutilizarlos en múltiples sentencias
     IF OBJECT_ID('tempdb..#Nuevos') IS NOT NULL DROP TABLE #Nuevos;
     CREATE TABLE #Nuevos(
-      dniPersona VARCHAR(9),
+      idPersona INT,
       idUF INT,
       inquilino BIT
     );
-    INSERT INTO #Nuevos(dniPersona, idUF, inquilino)
+    INSERT INTO #Nuevos(idPersona, idUF, inquilino)
     SELECT DISTINCT 
-      T.dni              AS dniPersona,
-      UF.id              AS idUF,
+	  P.idPersona,
+      UF.id,
       CAST(T.inquilino AS bit) AS inquilino
     FROM #temporalInquilinosCSV T
+	JOIN Personas.Persona P ON P.dni = T.dni 
     JOIN Infraestructura.UnidadFuncional UF ON UF.cbu_cvu = T.cvu;
 
     -- Cerrar activo del mismo rol en la misma UF si es OTRO DNI
@@ -718,11 +711,11 @@ BEGIN
       ON n.idUF = pe.idUF
      AND n.inquilino = pe.inquilino
     WHERE pe.fechaHasta IS NULL
-      AND pe.dniPersona <> n.dniPersona;
+      AND pe.idPersona <> n.idPersona;
 
     -- Insertar solo si esa misma persona no está activa en ese rol/UF
-    INSERT INTO Personas.PersonaEnUF (dniPersona, idUF, inquilino, fechaDesde, fechaHasta)
-    SELECT n.dniPersona, n.idUF, n.inquilino, CAST(GETDATE() AS DATE), NULL
+    INSERT INTO Personas.PersonaEnUF (idPersona, idUF, inquilino, fechaDesde, fechaHasta)
+    SELECT n.idPersona, n.idUF, n.inquilino, CAST(GETDATE() AS DATE), NULL
     FROM #Nuevos n
     WHERE NOT EXISTS (
       SELECT 1
@@ -730,14 +723,14 @@ BEGIN
       WHERE x.idUF = n.idUF
         AND x.inquilino = n.inquilino
         AND x.fechaHasta IS NULL
-        AND x.dniPersona = n.dniPersona
+        AND x.idPersona = n.idPersona
     );
 
     DROP TABLE #Nuevos;
 END
 GO
 
---Importa desde archivo json a tabla GastosExtraordinarios
+-- Importa desde archivo json a tabla GastosExtraordinarios
 CREATE OR ALTER PROCEDURE LogicaBD.sp_InsertarGastosExtraordinarios
 @idCons INT,
 @mesGasto INT
@@ -795,7 +788,7 @@ BEGIN
 END
 GO
 
---Importa desde archivo json a tabla GastosOrdinarios
+-- Importa desde archivo json a tabla GastosOrdinarios
 CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarGastosOrdinarios 
 @rutaArchivo VARCHAR(100),
 @nombreArchivo VARCHAR(100)
@@ -917,6 +910,7 @@ BEGIN
         DECLARE @mes INT  = (SELECT mes FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)
         DECLARE @idConsorcio INT = (SELECT consorcio FROM #datosGastosOrdinarios ORDER BY mes, consorcio OFFSET @contador ROWS FETCH NEXT 1 ROWS ONLY)
         DECLARE @empresa VARCHAR(100)
+		DECLARE @huboGastoOrdinarioNuevo BIT = 0
         
         IF NOT EXISTS (
             SELECT 1
@@ -931,6 +925,8 @@ BEGIN
             INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
             VALUES (@mes, 'Mantenimiento de cuenta bancaria', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoBan/100, '', @idConsorcio)
             SET @numeroFactura = @numeroFactura + 1
+
+			SET @huboGastoOrdinarioNuevo = 1
         END
 
         IF NOT EXISTS (
@@ -946,6 +942,8 @@ BEGIN
             INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
             VALUES (@mes, 'Limpieza', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoLim/100, '', @idConsorcio)
             SET @numeroFactura = @numeroFactura + 1
+
+			SET @huboGastoOrdinarioNuevo = 1
         END
 
         IF NOT EXISTS (
@@ -961,6 +959,8 @@ BEGIN
             INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
             VALUES (@mes, 'Administracion/Honorarios', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoAdm/100, '', @idConsorcio)
             SET @numeroFactura = @numeroFactura + 1
+
+			SET @huboGastoOrdinarioNuevo = 1
         END
 
         IF NOT EXISTS (
@@ -976,6 +976,8 @@ BEGIN
             INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
             VALUES (@mes, 'Seguro', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoSeg/100, '', @idConsorcio)
             SET @numeroFactura = @numeroFactura + 1
+
+			SET @huboGastoOrdinarioNuevo = 1
         END
 
          IF NOT EXISTS (
@@ -991,6 +993,8 @@ BEGIN
             INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
             VALUES (@mes, 'Generales', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoGen/100, '', @idConsorcio)
             SET @numeroFactura = @numeroFactura + 1
+
+			SET @huboGastoOrdinarioNuevo = 1
         END
 
         IF NOT EXISTS (
@@ -1006,6 +1010,8 @@ BEGIN
             INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
             VALUES (@mes, 'Servicios Publico', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoAgu/100, 'Agua', @idConsorcio)
             SET @numeroFactura = @numeroFactura + 1
+
+			SET @huboGastoOrdinarioNuevo = 1
         END
 
         IF NOT EXISTS (
@@ -1021,6 +1027,8 @@ BEGIN
             INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
             VALUES (@mes, 'Servicios Publico', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoLuz/100, 'Luz', @idConsorcio)
             SET @numeroFactura = @numeroFactura + 1
+
+			SET @huboGastoOrdinarioNuevo = 1
         END
         
         IF @gastoNet IS NOT NULL AND NOT EXISTS (
@@ -1034,21 +1042,118 @@ BEGIN
         BEGIN
             SET @empresa = (SELECT empresa FROM ##datosProveedores WHERE consorcio = @idConsorcio AND tipoGasto LIKE '%PUBLICOS%' AND ( empresa NOT LIKE '%EDENOR%' AND empresa NOT LIKE '%EDESUR%' AND empresa NOT LIKE '%AYSA%'))
             INSERT INTO Gastos.GastoOrdinario (mes, tipoGasto, empresaPersona, nroFactura, importeFactura, detalle, idConsorcio)
-            VALUES (@mes, 'Servicios Publico', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoLuz/100, 'Internet', @idConsorcio)
+            VALUES (@mes, 'Servicios Publico', ISNULL(@empresa, 'Desconocido'), @numeroFactura, @gastoNet/100, 'Internet', @idConsorcio)
             SET @numeroFactura = @numeroFactura + 1
+
+			SET @huboGastoOrdinarioNuevo = 1
         END
         
-        EXEC LogicaBD.sp_InsertarGastosExtraordinarios @idCons = @idConsorcio, @mesGasto = @mes
+		IF @huboGastoOrdinarioNuevo = 1
+		BEGIN
+			EXEC LogicaBD.sp_InsertarGastosExtraordinarios @idCons = @idConsorcio, @mesGasto = @mes
+		END
 
         SET @contador = @contador + 1
     END    
 
-    DELETE FROM Gastos.GastoExtraordinario
+	DELETE FROM Gastos.GastoExtraordinario
     WHERE id = 1
 END
 GO
 
---Genera la tabla de expensas
+--Importa desde archivo Excel a tabla Pagos
+CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarPagos
+@rutaArchivo VARCHAR(100),
+@nombreArchivo VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    CREATE TABLE #temporalPagos (
+        id CHAR(5),
+        fecha VARCHAR(10),
+        cvu VARCHAR(22),
+        monto VARCHAR(50)
+    );
+
+    DECLARE @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
+            @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'csv');
+
+    IF (@ruta = '' OR @archivo = '')
+    BEGIN
+        RETURN;
+    END;
+
+    DECLARE @rutaCompleta VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
+    DECLARE @sql NVARCHAR(MAX) = N'
+        BULK INSERT #temporalPagos
+        FROM ''' + @rutaCompleta + N'''
+        WITH (
+            FIELDTERMINATOR = '','',
+            ROWTERMINATOR = ''\n'',
+            CODEPAGE = ''65001'',
+            FIRSTROW = 2
+        )';
+    EXEC sp_executesql @sql;
+    
+    UPDATE #temporalPagos
+        SET 
+            id    = LTRIM(RTRIM(id)),
+            fecha = LTRIM(RTRIM(fecha)),
+            cvu   = LTRIM(RTRIM(cvu  )),
+            monto = LogicaNormalizacion.fn_ToDecimal(monto);
+
+	UPDATE #temporalPagos
+        SET cvu = NULL
+        WHERE cvu LIKE '%[^0-9]%' OR LEN(cvu) <> 22;
+
+	DELETE FROM #temporalPagos
+		WHERE NULLIF(fecha,'') IS NULL
+			OR NULLIF(cvu,'') IS NULL
+			OR NULLIF(monto,'') IS NULL
+			OR NULLIF(id, '') IS NULL;
+
+
+    INSERT INTO Finanzas.Pagos
+		(
+		 id,
+		 fecha,
+         monto,
+         cuentaBancaria,
+         valido,
+         idExpensa,
+         idUF) 
+    SELECT 
+		tP.id,
+        TRY_CONVERT(DATE, tP.fecha, 103), 
+        tP.monto, 
+        tP.cvu, 
+         CASE
+             WHEN uf.id IS NULL OR e.id IS NULL OR tP.cvu IS NULL THEN 0
+             ELSE 1
+        END AS valido, 
+        e.id, 
+        uf.id
+    FROM #temporalPagos as tP
+    LEFT JOIN Infraestructura.UnidadFuncional as uf	ON uf.cbu_cvu = tP.cvu
+    LEFT JOIN Administracion.Consorcio as c	ON uf.idConsorcio = c.id
+    LEFT JOIN Gastos.Expensa e ON e.idConsorcio = c.id
+       AND e.periodo = CAST(
+            RIGHT('0' + CAST(MONTH(TRY_CONVERT(DATE, tP.fecha, 103)) AS VARCHAR(2)),2)
+            + CAST(YEAR(TRY_CONVERT(DATE, tP.fecha, 103)) AS VARCHAR(4)) as CHAR(6)
+		)
+	WHERE NOT EXISTS (
+        SELECT 1
+        FROM Finanzas.Pagos p
+        WHERE p.id = tP.id
+    );
+END
+GO
+
+/*====================================================================
+                        CREACION DE EXPENSA                         
+====================================================================*/
+
+-- Genera la tabla de expensas
 CREATE OR ALTER PROCEDURE LogicaBD.sp_GenerarExpensa
 AS
 BEGIN
@@ -1116,82 +1221,160 @@ BEGIN
 END
 GO
 
---Importa desde archivo Excel a tabla Pagos
-CREATE OR ALTER PROCEDURE LogicaBD.sp_ImportarPagos
-@rutaArchivo VARCHAR(100),
-@nombreArchivo VARCHAR(100)
+
+CREATE OR ALTER PROCEDURE LogicaBD.sp_GenerarDetalles
 AS
 BEGIN
     SET NOCOUNT ON;
-    CREATE TABLE #temporalPagos (
-        id CHAR(5),
-        fecha VARCHAR(10),
-        cvu VARCHAR(22),
-        monto VARCHAR(50)
-    );
 
-    DECLARE @ruta VARCHAR(100) = LogicaNormalizacion.fn_NormalizarRutaArchivo(@rutaArchivo),
-            @archivo VARCHAR(100) = LogicaNormalizacion.fn_NormalizarNombreArchivoCSV(@nombreArchivo, 'csv');
-
-    IF (@ruta = '' OR @archivo = '')
-    BEGIN
-        RETURN;
-    END;
-
-    DECLARE @rutaCompleta VARCHAR(200) = REPLACE(@ruta + @archivo, '''', '''''');
-    DECLARE @sql NVARCHAR(MAX) = N'
-        BULK INSERT #temporalPagos
-        FROM ''' + @rutaCompleta + N'''
-        WITH (
-            FIELDTERMINATOR = '','',
-            ROWTERMINATOR = ''\n'',
-            CODEPAGE = ''65001'',
-            FIRSTROW = 2
-        )';
-    EXEC sp_executesql @sql;
-    
-    UPDATE #temporalPagos
-        SET 
-            id    = LTRIM(RTRIM(id)),
-            fecha = LTRIM(RTRIM(fecha)),
-            cvu   = LTRIM(RTRIM(cvu  )),
-            monto = LogicaNormalizacion.fn_ToDecimal(monto);
-
-	UPDATE #temporalPagos
-        SET cvu = NULL
-        WHERE cvu LIKE '%[^0-9]%' OR LEN(cvu) <> 22;
-
-	DELETE FROM #temporalPagos
-		WHERE NULLIF(fecha,'') IS NULL
-			OR NULLIF(cvu,'') IS NULL
-			OR NULLIF(monto,'') IS NULL;
+    DECLARE @tasa_venc1 DECIMAL(10,6) = 0.02;  -- 2%
+	DECLARE @tasa_venc2 DECIMAL(10,6) = 0.05;  -- 5%
 
 
-    INSERT INTO Finanzas.Pagos
-        (fecha,
-         monto,
-         cuentaBancaria,
-         valido,
-         idExpensa,
-         idUF) 
-    SELECT 
-        TRY_CONVERT(DATE, tP.fecha, 103), 
-        tP.monto, 
-        tP.cvu, 
-         CASE
-             WHEN uf.id IS NULL OR e.id IS NULL OR tP.cvu IS NULL THEN 0
-             ELSE 1
-        END AS valido, 
-        e.id, 
-        uf.id
-    FROM #temporalPagos as tP
-    LEFT JOIN Infraestructura.UnidadFuncional as uf	ON uf.cbu_cvu = tP.cvu
-    LEFT JOIN Administracion.Consorcio as c	ON uf.idConsorcio = c.id
-    LEFT JOIN Gastos.Expensa e ON e.idConsorcio = c.id
-       AND e.periodo = CAST(
-            RIGHT('0' + CAST(MONTH(TRY_CONVERT(DATE, tP.fecha, 103)) AS VARCHAR(2)),2)
-            + CAST(YEAR(TRY_CONVERT(DATE, tP.fecha, 103)) AS VARCHAR(4)) as CHAR(6)
-		);
+	WITH cteDeudaAPrimerVenc AS
+	(
+		SELECT 
+			uf.id as [ID UF], 
+			ex.id as [ID EX], 
+			(ex.totalGastoExtraordinario + ex.totalGastoOrdinario) * (uf.dimension/con.metrosTotales) AS [Total Base],
+			(
+				(ex.totalGastoExtraordinario + ex.totalGastoOrdinario) * (uf.dimension / con.metrosTotales)
+				+ CASE WHEN uf.m2Cochera > 0 THEN 50000 ELSE 0 END
+				+ CASE WHEN uf.m2Baulera > 0 THEN 50000 ELSE 0 END
+			) AS [Total],
+			LogicaBD.sumarPagosEntreFechas(
+				DATEADD(DAY, 5 - DAY(ex.primerVencimiento), ex.primerVencimiento),
+				ex.primerVencimiento,
+				uf.id
+			) AS [MontoPagadoHastaPrimVenc],
+			primerVencimiento,
+			segundoVencimiento,
+			CASE WHEN uf.m2Cochera > 0 THEN 50000 ELSE 0 END as MontoCochera,
+			CASE WHEN uf.m2Baulera > 0 THEN 50000 ELSE 0 END as MontoBaulera
+		FROM Gastos.Expensa as ex 
+        INNER JOIN Infraestructura.UnidadFuncional AS uf
+            ON ex.idConsorcio = uf.idConsorcio
+        INNER JOIN Administracion.Consorcio con
+            ON con.id = uf.idConsorcio
+	),
+	cteDeudaASegVenc AS		
+	(
+		SELECT
+			[ID UF],
+			[ID EX],
+			[Total Base],
+			Total,
+			[MontoPagadoHastaPrimVenc],
+			(Total - [MontoPagadoHastaPrimVenc]) [deudaPrimerVenc],
+			CASE 
+				WHEN Total - [MontoPagadoHastaPrimVenc] > 0 
+					THEN (Total - [MontoPagadoHastaPrimVenc]) * @tasa_venc1
+				ELSE 0 
+			END AS [interesPrimerVenc],
+			CASE 
+				WHEN Total - [MontoPagadoHastaPrimVenc] > 0 
+					THEN (Total - [MontoPagadoHastaPrimVenc]) * (1 + @tasa_venc1)
+				ELSE (Total - [MontoPagadoHastaPrimVenc])  -- si deuda <= 0, queda igual
+			END AS [montoPagarEnPrimerVenc],
+			LogicaBD.sumarPagosEntreFechas(
+				DATEADD(DAY, 1, primerVencimiento),
+				segundoVencimiento,
+				[ID UF]
+			) AS [MontoPagadoEntrePrimVencSegVenc],
+			primerVencimiento,
+			segundoVencimiento,
+			MontoCochera,
+			MontoBaulera
+		FROM cteDeudaAPrimerVenc
+	),
+	cteDeudaFinal AS
+	(
+		SELECT
+			[ID UF],
+			[ID EX],
+			[MontoPagadoHastaPrimVenc],
+			[Total Base],
+			Total,
+			[deudaPrimerVenc],
+			[interesPrimerVenc],
+			[montoPagarEnPrimerVenc],
+			[MontoPagadoEntrePrimVencSegVenc],
+			([montoPagarEnPrimerVenc] - [MontoPagadoEntrePrimVencSegVenc]) as [deudaSegVenc],
+			CASE 
+				WHEN [montoPagarEnPrimerVenc] - [MontoPagadoEntrePrimVencSegVenc] > 0 
+					THEN ([montoPagarEnPrimerVenc] - [MontoPagadoEntrePrimVencSegVenc]) * @tasa_venc2
+				ELSE 0 
+			END AS [InteresSegVenc],
+			CASE 
+				WHEN [montoPagarEnPrimerVenc] - [MontoPagadoEntrePrimVencSegVenc] > 0 
+					THEN ([montoPagarEnPrimerVenc] - [MontoPagadoEntrePrimVencSegVenc]) * (1 + @tasa_venc2)
+				ELSE ([montoPagarEnPrimerVenc] - [MontoPagadoEntrePrimVencSegVenc])
+			END AS [montoPagarEnSegVenc],
+			LogicaBD.sumarPagosEntreFechas(
+				DATEADD(DAY, 1, segundoVencimiento),
+				DATEADD(
+					MONTH,
+					1,
+					DATEADD(DAY, 4 - DAY(segundoVencimiento), segundoVencimiento) -- 5 del mes siguiente
+				),
+				[ID UF]
+			) AS [MontoPagadoEntreSegVencFinMes],
+			MontoCochera,
+			MontoBaulera
+		FROM cteDeudaASegVenc
+	),
+	cteFormateoDeuda AS
+	(
+		SELECT 
+			[ID UF],
+			[ID EX],
+			CAST([Total Base] AS DECIMAL(10,2)) AS [Monto Base],
+			CAST(Total AS DECIMAL(10, 2)) AS Total,
+			CAST([MontoPagadoHastaPrimVenc] AS DECIMAL(10,2)) as [PagadoI_P_V],
+			CAST([deudaPrimerVenc] AS DECIMAL(10,2)) as [DeudaPrimerVenc],
+			CAST([interesPrimerVenc] AS DECIMAL(10,2)) as [InteresPrimerDeuda],
+			CAST([montoPagarEnPrimerVenc] AS DECIMAL(10,2)) as [NuevoMontoPV],
+			CAST([MontoPagadoEntrePrimVencSegVenc] AS DECIMAL(10,2)) as [PagadoP_S_V],
+			CAST([deudaSegVenc] AS DECIMAL(10,2)) as [DeudaSegVenc],
+			CAST([InteresSegVenc] AS DECIMAL(10,2)) as [InteresSegundaDeuda],
+			CAST([montoPagarEnSegVenc] AS DECIMAL(10,2)) [NuevoMontoSV],
+			CAST([MontoPagadoEntreSegVencFinMes] AS DECIMAL(10,2)) [Pagado_S_F],
+			MontoCochera,
+			MontoBaulera
+		FROM cteDeudaFinal
+	),
+	cteArrastre AS
+	(
+		SELECT
+			fd.*,
+			LAG([NuevoMontoSV] - [Pagado_S_F], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID EX]) AS SaldoArrastrado,
+			LAG([InteresPrimerDeuda] + [InteresSegundaDeuda], 1, 0) OVER (PARTITION BY [ID UF] ORDER BY [ID EX]) AS InteresArrastrado
+			FROM cteFormateoDeuda fd
+	)
+
+	INSERT INTO Gastos.DetalleExpensa
+		(montoBase, deuda, saldoAFavor, intereses, montoCochera, montoBaulera, montoTotal, idExpensa, idUF, estado)
+	SELECT
+		[Monto Base],
+		CASE 
+			WHEN SaldoArrastrado > 0 THEN SaldoArrastrado
+			ELSE 0
+		END AS Deuda,
+		CASE 
+			WHEN SaldoArrastrado < 0 THEN -SaldoArrastrado
+			ELSE 0
+		END AS saldoAFavor,
+		InteresArrastrado AS intereses,
+		MontoCochera,
+		MontoBaulera,
+		(Total + SaldoArrastrado) AS montoTotal,
+		[ID EX],
+		[ID UF],
+		CASE
+			WHEN (SaldoArrastrado + InteresArrastrado + Total) <= 0 THEN 'P'
+			ELSE 'D'
+		END AS estado
+	FROM cteArrastre a
+
 END
 GO
-

@@ -10,7 +10,7 @@
     - GATTI, Gonzalo: 46208638
     - MORALES, Tomas: 40.755.243
 
-  Nombre: Entrega05.sql
+  Nombre: 04_ReportesApi.sql
   Proposito: Creacion de reportes/informes de pagos y gastos.
   Script a ejecutar antes: 00_CreacionDeTablas.sql
   */

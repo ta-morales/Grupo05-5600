@@ -14,7 +14,11 @@ Proposito: Crear esquemas, tablas, condiciones e indices base.
 Script a ejecutar antes: Ninguno.
 */
 
--- CREACION DE BBDD --
+
+/*====================================================================
+          CREACIÓN DE BASE DE DATOS Y CONFIGURACION INICIAL                        
+====================================================================*/
+
 IF DB_ID('auxiliarDB') IS NULL
 BEGIN
     CREATE DATABASE auxiliarDB
@@ -45,8 +49,15 @@ IF DB_ID('auxiliarDB') IS NOT NULL
     DROP DATABASE auxiliarDB;
 GO
 
+-- 
+EXEC sp_configure 'show advanced options', 1;
+RECONFIGURE;
+EXEC sp_configure 'Ole Automation Procedures', 1;
+RECONFIGURE;
 
------------------- CREACION DE ESQUEMAS ------------------
+/*====================================================================
+                        CREACIÓN DE ESQUEMAS                         
+====================================================================*/
 
 -- Incluye UnidadFuncional
 IF SCHEMA_ID('Infraestructura') IS NULL
@@ -90,9 +101,12 @@ IF SCHEMA_ID('LogicaBD') IS NULL
 BEGIN
     EXEC('CREATE SCHEMA LogicaBD');
 END
---ultima version
 
------------------- CREACION DE TABLAS ------------------
+
+
+/*====================================================================
+                        CREACIÓN DE TABLAS                         
+====================================================================*/
 
 -- Incluye Consorcio
 IF OBJECT_ID('Administracion.Consorcio', 'U') IS NULL
@@ -100,7 +114,7 @@ BEGIN
     CREATE TABLE Administracion.Consorcio(
         id INT IDENTITY(1, 1),
         nombre VARCHAR(100) NOT NULL,
-        direccion VARCHAR(100) NOT NULL,
+        direccion VARCHAR(100) NOT NULL UNIQUE,
         metrosTotales DECIMAL(8,2) NOT NULL,
         CONSTRAINT pk_Consorcio PRIMARY KEY (id)
     )
@@ -129,36 +143,44 @@ END
 IF OBJECT_ID('Personas.Persona', 'U') IS NULL
 BEGIN
     CREATE TABLE Personas.Persona(
+		idPersona int IDENTITY(1,1),
         dni VARCHAR(9) CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) BETWEEN 7 AND 9),
-        nombre VARCHAR(50) NOT NULL,
-        apellido VARCHAR(50) NOT NULL,
-        email VARCHAR(100) NULL CHECK (email LIKE '%@%'),
-        email_trim AS LOWER(LTRIM(RTRIM(email))) PERSISTED,
-        telefono VARCHAR(10) NULL CHECK (telefono NOT LIKE '%[^0-9]%'),
-        cbu_cvu CHAR(22) NOT NULL UNIQUE CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
+        nombre VARCHAR(50),
+        apellido VARCHAR(50),
+        email VARCHAR(100) CHECK (email LIKE '%@%'),
+        telefono VARCHAR(10) CHECK (telefono NOT LIKE '%[^0-9]%'),
+        cbu_cvu CHAR(22) CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
 
-        CONSTRAINT pk_Persona PRIMARY KEY (dni)
+        CONSTRAINT pk_Persona PRIMARY KEY (idPersona)
     )
 END
 
--- Indice único solo sobre emails reales (permite múltiples NULL)
+-- Indice unico sobre emails (permite muchos null)
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
-    WHERE name = 'UX_Persona_EmailTrim' 
+    WHERE name = 'UX_Persona_Email' 
       AND object_id = OBJECT_ID('Personas.Persona')
 )
 BEGIN
-    CREATE UNIQUE INDEX UX_Persona_EmailTrim
-    ON Personas.Persona(email_trim)
+    CREATE UNIQUE INDEX UX_Persona_Email
+    ON Personas.Persona(email)
     WHERE email IS NOT NULL;
 END;
+
+CREATE UNIQUE INDEX UX_Persona_CBU
+ON Personas.Persona(cbu_cvu)
+WHERE cbu_cvu IS NOT NULL;
+
+CREATE UNIQUE INDEX UX_Persona_dni
+ON Personas.Persona(dni)
+WHERE dni IS NOT NULL;
 
 
 IF OBJECT_ID('Personas.PersonaEnUF', 'U') IS NULL
 BEGIN
     CREATE TABLE Personas.PersonaEnUF(
-        idPersonaUF int IDENTITY(1,1),
-        dniPersona VARCHAR(9) CHECK (dniPersona NOT LIKE '%[^0-9]%') NOT NULL,
+        idPersonaUF INT IDENTITY(1,1),
+		idPersona INT NOT NULL,
         idUF INT NOT NULL,
         inquilino BIT NOT NULL,
         fechaDesde DATE DEFAULT GETDATE() NOT NULL,
@@ -166,19 +188,19 @@ BEGIN
 
         CONSTRAINT pk_PersonaEnUF PRIMARY KEY (idPersonaUF),
 
-        CONSTRAINT fk_PersonaUF_Persona FOREIGN KEY (dniPersona) REFERENCES Personas.Persona(dni),
+        CONSTRAINT fk_PersonaUF_Persona FOREIGN KEY (idPersona) REFERENCES Personas.Persona(idPersona),
         CONSTRAINT fk_PersonaUF_UF FOREIGN KEY (idUF) REFERENCES Infraestructura.UnidadFuncional(id),
 
         -- Coherencia temporal 
         CONSTRAINT CK_PersonaEnUF_Rango CHECK (fechaHasta IS NULL OR fechaHasta > fechaDesde),
         -- Persona, uf y fechaDesde no se repite 
-        CONSTRAINT UQ_PersonaUF_Desde UNIQUE (dniPersona, idUF, fechaDesde)
+        CONSTRAINT UQ_PersonaUF_Desde UNIQUE (idPersona, idUF, fechaDesde)
     )
 END
 
--- Solo UNA relacion activa por persona-UF 
+-- Solo una relacion activa por persona-UF 
 CREATE UNIQUE INDEX UX_PersonaEnUF_Activa 
-ON Personas.PersonaEnUF(dniPersona, idUF) 
+ON Personas.PersonaEnUF(idPersona, idUF) 
 WHERE fechaHasta IS NULL;
 
 
@@ -240,12 +262,13 @@ IF OBJECT_ID('Gastos.DetalleExpensa', 'U') IS NULL
 BEGIN
     CREATE TABLE Gastos.DetalleExpensa (
         id INT IDENTITY(1,1),
-        montoBase DECIMAL(10,2) CHECK (montoBase > 0),
+        montoBase DECIMAL(10,2),
+		saldoAFavor DECIMAL(10, 2),
         deuda DECIMAL(10,2),
         intereses DECIMAL (10,2),
         montoCochera DECIMAL(8,2),
         montoBaulera DECIMAL(8,2),
-        montoTotal DECIMAL(20,2) CHECK (montoTotal > 0),
+        montoTotal DECIMAL(20,2),
         estado CHAR(1) NOT NULL CHECK (estado IN ('P', 'E', 'D')),
         idExpensa INT,
         idUF INT,
@@ -255,7 +278,7 @@ BEGIN
     )
 END
 
--- Unico detalle por expensa/UF (evita duplicados)
+-- Unico detalle por expensa/UF (para evitar duplicados)
 CREATE UNIQUE INDEX UX_DetalleExpensa_ExpensaUF
 ON Gastos.DetalleExpensa(idExpensa, idUF);
 
@@ -270,11 +293,11 @@ BEGIN
         telefono VARCHAR(10) NULL CHECK (telefono NOT LIKE '%[^0-9]%'),
         fecha DATE NOT NULL,
         estado CHAR(1) NOT NULL CHECK (estado IN ('P', 'E', 'D')),
-        dniPersona VARCHAR(9),
+        idPersona INT,
         idExpensa INT,
 
         CONSTRAINT pk_EnvioExpensa PRIMARY KEY (id),
-        CONSTRAINT fk_Envio_Persona FOREIGN KEY (dniPersona) REFERENCES Personas.Persona(dni),
+        CONSTRAINT fk_Envio_Persona FOREIGN KEY (idPersona) REFERENCES Personas.Persona(idPersona),
         CONSTRAINT fk_Envio_Expensa FOREIGN KEY (idExpensa) REFERENCES Gastos.Expensa(id),
 		CONSTRAINT CK_EnvioExpensa_MetodoDatos
 		  CHECK (
@@ -288,7 +311,7 @@ END
 IF OBJECT_ID('Finanzas.Pagos', 'U') IS NULL
 BEGIN
 	CREATE TABLE Finanzas.Pagos (
-		id INT IDENTITY(1, 1),
+		id INT,
 		fecha DATE NOT NULL,
 		monto DECIMAL(10,2) NOT NULL CHECK(monto >0),
 		cuentaBancaria VARCHAR(22) NOT NULL,

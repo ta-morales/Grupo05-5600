@@ -12,17 +12,12 @@ Integrantes:
 
 Nombre: 03_EjecucionScripts00_01.sql
 Proposito: Ejecutables de los SP de importacion.
-Script a ejecutar antes: 01_SPImportacionDatos.sql
+Script a ejecutar antes: 00_CreacionDeTablas 01_SPImportacionDatos.sql
 */
 
 /* ============================ Ejecución con rutas locales ============================ */
 USE Com5600G05
 GO
-
-EXEC sp_configure 'show advanced options', 1;
-RECONFIGURE;
-EXEC sp_configure 'Ole Automation Procedures', 1;
-RECONFIGURE;
 
 DECLARE @ruta VARCHAR(200) = 'C:\SQL_SERVER_IMPORTS'
 
@@ -46,13 +41,40 @@ EXEC LogicaBD.sp_ImportarGastosOrdinarios
   @rutaArchivo = @ruta,
   @nombreArchivo = 'Servicios.Servicios.json';
 
-EXEC LogicaBD.sp_GenerarExpensa
+EXEC LogicaBD.sp_GenerarExpensa;
 
 EXEC LogicaBD.sp_ImportarPagos
   @rutaArchivo = @ruta,
   @nombreArchivo = 'pagos_consorcios.csv';
 
-  -- SELECT * FROM Finanzas.Pagos;
+EXEC LogicaBD.sp_GenerarDetalles
+
+
+SELECT * FROM Administracion.Consorcio
+SELECT * FROM Infraestructura.UnidadFuncional
+SELECT * FROM Personas.Persona
+SELECT * FROM Personas.PersonaEnUF
+
+SELECT idConsorcio, mes, SUM(importeFactura) as ImporteTotalExpensa FROM Gastos.GastoOrdinario
+GROUP BY idConsorcio, mes
+
+SELECT * FROM Gastos.GastoOrdinario
+
+SELECT * FROM Gastos.GastoExtraordinario
+
+
+SELECT mes, SUM(importe) as ImporteTotal FROM Gastos.GastoExtraordinario
+GROUP BY mes
+
+SELECT * FROM Gastos.Expensa
+
+SELECT * FROM Gastos.DetalleExpensa
+order by idUF, idExpensa
+
+SELECT * FROM Finanzas.Pagos
+WHERE idUF = 1
+ORDER BY fecha
+
 -- Esto es para generar mejor el detalle
 /*
 WITH cteGastos AS

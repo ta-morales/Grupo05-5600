@@ -225,7 +225,7 @@ BEGIN
 			RAISERROR('.', 16, 1);
 		END
 
-		SELECT @ID = dni
+		SELECT @ID = idPersona
 		FROM Personas.Persona
 		WHERE dni = @dni
 
@@ -241,9 +241,9 @@ BEGIN
 			RAISERROR('.', 16, 1);
 		END
 
-		SELECT @emailRepetido = email_trim
+		SELECT @emailRepetido = email
 		FROM Personas.Persona
-		WHERE email_trim = @email
+		WHERE email = @email
 
 		IF @emailRepetido IS NOT NULL
 		BEGIN
@@ -280,6 +280,7 @@ BEGIN
 
 		PRINT('Persona insertada exitosamente');
 
+		SET @ID = SCOPE_IDENTITY();
 		SELECT @ID AS id;
 	END TRY
 		
@@ -307,7 +308,7 @@ BEGIN
 		DECLARE 
 			@ID INT,
 			@unidadFuncionalExiste INT,
-			@personaExiste INT;
+			@IDPersona INT;
 		
 		SET @dniPersona = REPLACE(REPLACE(LTRIM(RTRIM(@dniPersona)),' ',''),'.','');
 
@@ -333,11 +334,11 @@ BEGIN
 			RAISERROR('.', 16, 1);
 		END
 
-		SELECT @personaExiste = dni 
+		SELECT @IDPersona = idPersona
 		FROM Personas.Persona
 		WHERE dni = @dniPersona
 
-		IF @personaExiste IS NULL
+		IF @IDPersona IS NULL
 		BEGIN
 			PRINT('La persona no existe');
 			RAISERROR('.', 16, 1);
@@ -363,7 +364,7 @@ BEGIN
 
 		SELECT @ID = idPersonaUF
 		FROM Personas.PersonaEnUF
-		WHERE dniPersona = @dniPersona AND fechaDesde = @fechaDesde
+		WHERE idPersona = @IDPersona AND fechaDesde = @fechaDesde
 
 		IF @ID IS NOT NULL
 		BEGIN
@@ -371,8 +372,8 @@ BEGIN
 			RAISERROR('.', 16, 1);
 		END
 
-		INSERT INTO Personas.PersonaEnUF (dniPersona, idUF, inquilino, fechaDesde, fechaHasta)
-		VALUES (@dniPersona, @idUF, @inquilino, @fechaDesde, @fechaHasta)
+		INSERT INTO Personas.PersonaEnUF (idPersona, idUF, inquilino, fechaDesde, fechaHasta)
+		VALUES (@IDPersona, @idUF, @inquilino, @fechaDesde, @fechaHasta)
 
 		PRINT('Persona en unidad funcional insertada exitosamente');
 
@@ -655,9 +656,13 @@ BEGIN
 				RAISERROR('.', 16, 1);
 			END
 
+			SELECT @ID = ISNULL(MAX(p.id), 0) + 1
+			FROM Finanzas.Pagos p;
+
 			INSERT INTO Finanzas.Pagos 
-				(fecha, monto, cuentaBancaria, valido, idExpensa, idUF)
+				(id, fecha, monto, cuentaBancaria, valido, idExpensa, idUF)
 			VALUES (
+				@ID,
 				@fecha,
 				@monto,
 				@cuentaBancaria,
@@ -671,7 +676,6 @@ BEGIN
 
 			PRINT('Pago insertado exitosamente');
 
-			SET @ID = SCOPE_IDENTITY();
 			SELECT @ID AS id;
 	END TRY
 
@@ -683,4 +687,6 @@ BEGIN
 		END
 	END CATCH
 END
+GO
+
 
