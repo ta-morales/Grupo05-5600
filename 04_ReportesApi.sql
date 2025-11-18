@@ -316,31 +316,116 @@ BEGIN
         WHERE LOWER(nombre) = LOWER(@nombreConsorcio);
     END
 
-    SELECT 
-        ex.periodo,
-        (totalGastoExtraordinario + totalGastoOrdinario) as [Gastos $],
-        ing.[Ingresos] AS [Ingresos $],
-        CAST((totalGastoExtraordinario + totalGastoOrdinario) / @precio AS DECIMAL(10,2)) as [Gastos U$D],
-        CAST(ing.[Ingresos] / @precio AS DECIMAL(10,2)) AS [Ingresos U$D]
-    FROM Gastos.Expensa as ex
-    INNER JOIN (
-        SELECT
-            CONCAT(
-                RIGHT('0' + TRIM(CAST(MONTH(fecha) AS CHAR(2))), 2), 
-                TRIM(CAST(YEAR(fecha) AS CHAR(4)))
-            ) AS Periodo,
-            sum(monto) AS 'Ingresos'
-        FROM Finanzas.Pagos
-        WHERE 
-            (@fechaFin IS NULL OR @fechaFin >= fecha) AND
-            (@fechaInicio IS NULL OR @fechaInicio <= fecha)
-        GROUP BY CONCAT(
-                RIGHT('0' + TRIM(CAST(MONTH(fecha) AS CHAR(2))), 2), 
-                TRIM(CAST(YEAR(fecha) AS CHAR(4)))
-            ) 
-     ) as ing ON ing.Periodo = ex.periodo
-     WHERE (@idConsorcio IS NULL OR ex.idConsorcio = @idConsorcio)
-     ORDER BY periodo
+    ;WITH bases AS (
+        SELECT 
+            ex.periodo,
+            (totalGastoExtraordinario + totalGastoOrdinario) as [Gastos$],
+            ing.[Ingresos] AS [Ingresos$]
+        FROM Gastos.Expensa as ex
+        INNER JOIN (
+            SELECT
+                CONCAT(
+                    RIGHT('0' + TRIM(CAST(MONTH(fecha) AS CHAR(2))), 2), 
+                    TRIM(CAST(YEAR(fecha) AS CHAR(4)))
+                ) AS Periodo,
+                sum(monto) AS 'Ingresos'
+            FROM Finanzas.Pagos
+            WHERE 
+                (@fechaFin IS NULL OR @fechaFin >= fecha) AND
+                (@fechaInicio IS NULL OR @fechaInicio <= fecha)
+            GROUP BY CONCAT(
+                    RIGHT('0' + TRIM(CAST(MONTH(fecha) AS CHAR(2))), 2), 
+                    TRIM(CAST(YEAR(fecha) AS CHAR(4)))
+                ) 
+        ) as ing ON ing.Periodo = ex.periodo
+        WHERE (@idConsorcio IS NULL OR ex.idConsorcio = @idConsorcio)
+    )
+    -- Top 5 meses de mayores gastos
+    SELECT TOP 5 
+        periodo,
+        [Gastos$] AS [Gastos $],
+        CAST([Gastos$] / @precio AS DECIMAL(10,2)) as [Gastos U$D]
+    FROM bases
+    ORDER BY [Gastos$] DESC;
+
+    -- Top 5 meses de mayores ingresos
+    ;WITH bases AS (
+        SELECT 
+            ex.periodo,
+            (totalGastoExtraordinario + totalGastoOrdinario) as [Gastos$],
+            ing.[Ingresos] AS [Ingresos$]
+        FROM Gastos.Expensa as ex
+        INNER JOIN (
+            SELECT
+                CONCAT(
+                    RIGHT('0' + TRIM(CAST(MONTH(fecha) AS CHAR(2))), 2), 
+                    TRIM(CAST(YEAR(fecha) AS CHAR(4)))
+                ) AS Periodo,
+                sum(monto) AS 'Ingresos'
+            FROM Finanzas.Pagos
+            WHERE 
+                (@fechaFin IS NULL OR @fechaFin >= fecha) AND
+                (@fechaInicio IS NULL OR @fechaInicio <= fecha)
+            GROUP BY CONCAT(
+                    RIGHT('0' + TRIM(CAST(MONTH(fecha) AS CHAR(2))), 2), 
+                    TRIM(CAST(YEAR(fecha) AS CHAR(4)))
+                ) 
+        ) as ing ON ing.Periodo = ex.periodo
+        WHERE (@idConsorcio IS NULL OR ex.idConsorcio = @idConsorcio)
+    )
+    SELECT TOP 5 
+        periodo,
+        [Ingresos$] AS [Ingresos $],
+        CAST([Ingresos$] / @precio AS DECIMAL(10,2)) AS [Ingresos U$D]
+    FROM bases
+    ORDER BY [Ingresos$] DESC;
+END
+GO
+
+-- INFORME 05: TOP 3 PROPIETARIOS CON MAYOR MOROSIDAD
+CREATE OR ALTER PROCEDURE LogicaBD.sp_Informe05
+(
+    @nombreConsorcio VARCHAR(100) = NULL,
+    @periodoDesde CHAR(6) = NULL,
+    @periodoHasta CHAR(6) = NULL
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    ;WITH propietarios AS (
+        SELECT 
+            p.idPersona,
+            p.nombre,
+            p.apellido,
+            p.dni,
+            p.email,
+            p.telefono,
+            uf.id          AS idUF,
+            c.id           AS idConsorcio,
+            c.nombre       AS consorcio
+        FROM Personas.PersonaEnUF peu
+        INNER JOIN Personas.Persona p ON p.idPersona = peu.idPersona
+        INNER JOIN Infraestructura.UnidadFuncional uf ON uf.id = peu.idUF
+        INNER JOIN Administracion.Consorcio c ON c.id = uf.idConsorcio
+        WHERE peu.inquilino = 0  -- solo propietarios
+          AND peu.fechaHasta IS NULL -- relación activa
+          AND (@nombreConsorcio IS NULL OR c.nombre = @nombreConsorcio)
+    )
+    SELECT TOP 3 
+        pr.apellido,
+        pr.nombre,
+        pr.dni,
+        pr.email,
+        pr.telefono,
+        SUM(CASE WHEN (d.deuda + d.intereses) > 0 THEN (d.deuda + d.intereses) ELSE 0 END) AS morosidad_total
+    FROM propietarios pr
+    INNER JOIN Gastos.DetalleExpensa d ON d.idUF = pr.idUF
+    INNER JOIN Gastos.Expensa ex ON ex.id = d.idExpensa AND ex.idConsorcio = pr.idConsorcio
+    WHERE (@periodoDesde IS NULL OR ex.periodo >= @periodoDesde)
+      AND (@periodoHasta IS NULL OR ex.periodo <= @periodoHasta)
+    GROUP BY pr.apellido, pr.nombre, pr.dni, pr.email, pr.telefono
+    ORDER BY morosidad_total DESC;
 END
 GO
 
@@ -361,15 +446,9 @@ SELECT
     ISNULL( 
         DATEDIFF( 
             DAY, 
-            LAG(sub1.fecha,1,null) OVER (PARTITION BY idUF,MONTH(fecha) ORDER BY idUF, fecha), 
-            sub1.fecha ) 
-        ,0) as [dias_entre_pagos], 
-    ISNULL( 
-        DATEDIFF( 
-            DAY, 
             LAG(sub1.fecha,1,null) OVER (PARTITION BY idUF ORDER BY idUF, fecha), 
             sub1.fecha )
-        ,0) as [dias_entre_pagos_2] 
+        ,0) as [dias_entre_pagos] 
     FROM ( 
         SELECT 
             pg.idUF, 
@@ -405,6 +484,8 @@ EXEC LogicaBD.sp_Informe02
 EXEC LogicaBD.sp_Informe03
 
 EXEC LogicaBD.sp_Informe04 @nombreConsorcio = 'azcuenaga'
+
+EXEC LogicaBD.sp_Informe05
 
 EXEC LogicaBD.sp_Informe06
 
