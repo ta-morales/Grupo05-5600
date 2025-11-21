@@ -63,8 +63,11 @@ SELECT * FROM Gastos.GastoOrdinario
 SELECT * FROM Gastos.GastoExtraordinario
 
 
-SELECT mes, SUM(importe) as ImporteTotal FROM Gastos.GastoExtraordinario
-GROUP BY mes
+SELECT idConsorcio,mes, SUM(importe) as ImporteTotal FROM Gastos.GastoExtraordinario
+GROUP BY idConsorcio, mes
+
+SELECT idConsorcio,mes, SUM(importeFactura) as ImporteTotal FROM Gastos.GastoOrdinario
+GROUP BY idConsorcio, mes
 
 SELECT * FROM Gastos.Expensa
 

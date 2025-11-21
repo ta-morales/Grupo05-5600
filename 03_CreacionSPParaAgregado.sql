@@ -294,6 +294,7 @@ BEGIN
 END
 GO
 
+
 -- Inserta datos en Tabla Tabla Persona En UF
 CREATE OR ALTER PROCEDURE Personas.sp_AgregarPersonaEnUF
 	@dniPersona VARCHAR(9),
@@ -690,3 +691,10 @@ END
 GO
 
 
+EXEC Personas.sp_AgregarPersona 
+	@dni='44613354',
+	@nombre='Franco',
+	@apellido='Ermasi',
+	@email=NULL,
+	@telefono=1131688005,
+	@cbu_cvu=2044613354400000000000;
