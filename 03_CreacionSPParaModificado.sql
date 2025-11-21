@@ -137,3 +137,27 @@ BEGIN
 
 END
 GO
+
+-- Modificar solo dimensiones y anexos
+EXEC Infraestructura.sp_ModificarUnidadFuncional
+    @idUF = 1,
+    @dimension = 60.00,
+    @m2Cochera = 14.00,
+    @m2Baulera = 4.00;
+
+-- Modificar CBU/CVU (validación: 22 dígitos)
+EXEC Infraestructura.sp_ModificarUnidadFuncional
+    @idUF = 1,
+    @cbu_cvu = '2044613354400000000002';
+
+-- Modificar piso/departamento (requiere que no exista duplicado en el consorcio)
+EXEC Infraestructura.sp_ModificarUnidadFuncional
+    @idUF = 1,
+    @piso = '02',
+    @departamento = 'B';
+
+-- Modificar porcentaje de participación y reasignar a otro consorcio
+EXEC Infraestructura.sp_ModificarUnidadFuncional
+    @idUF = 1,
+    @porcentajeParticipacion = 2.50,
+    @idConsorcio = 1;
