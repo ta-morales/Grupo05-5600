@@ -138,6 +138,9 @@ BEGIN
 END
 GO
 
+
+--testing
+/*
 -- Modificar solo dimensiones y anexos
 EXEC Infraestructura.sp_ModificarUnidadFuncional
     @idUF = 1,
@@ -161,3 +164,5 @@ EXEC Infraestructura.sp_ModificarUnidadFuncional
     @idUF = 1,
     @porcentajeParticipacion = 2.50,
     @idConsorcio = 1;
+	*/
+

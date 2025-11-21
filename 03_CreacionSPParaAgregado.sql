@@ -691,8 +691,8 @@ END
 GO
 
 
-
-
+--  TESTING
+/*
 	-- Alta de Consorcio
 EXEC Administracion.sp_AgregarConsorcio 
     @nombre = 'Consorcio Demo 5600-05',
@@ -752,3 +752,4 @@ EXEC Finanzas.sp_AgregarPago
     @fecha = '2025-03-05',
     @monto = 60000.00,
     @cuentaBancaria = '2044613354400000000000';
+	*/
