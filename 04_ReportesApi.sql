@@ -163,7 +163,7 @@ BEGIN
 END
 GO
 
--- INFORME 01: PAGOS ORDINARIOS Y EXTRAORDINARIOS POR SEMANA
+-- INFORME 01: PAGOS ORDINARIOS Y EXTRAORDINARIOS POR SEMANA + promedio semanal por mes + total por mes
 CREATE OR ALTER PROCEDURE LogicaBD.sp_Informe01
 @mesInicio INT = NULL , 
 @mesFinal INT = NULL,
@@ -187,12 +187,10 @@ BEGIN
         FROM Finanzas.Pagos
     ),
     cteSumaSemanas AS (
-    SELECT
-        DISTINCT
+    SELECT DISTINCT
         CAST(
             RIGHT('0' + CAST(MONTH(TRY_CONVERT(DATE, fecha, 103)) AS VARCHAR(2)),2)
-            + CAST(YEAR(TRY_CONVERT(DATE, fecha, 103)) AS VARCHAR(4)) as CHAR(6)
-		) AS [periodo],
+            + CAST(YEAR(TRY_CONVERT(DATE, fecha, 103)) AS VARCHAR(4)) as CHAR(6)) AS [periodo],
         DATEPART(WEEK, fecha) AS [numero_semana],
         SUM(CASE WHEN NroPago = 1 THEN monto ELSE 0 END) AS [pagos_ordinarios],
         SUM(CASE WHEN NroPago > 1 THEN monto ELSE 0 END) AS [pagos_extraordinarios],

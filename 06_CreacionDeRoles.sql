@@ -18,42 +18,15 @@ Script a ejecutar antes: 00_CreacionDeTablas 01_SPImportacionDatos.sql 03_Creaci
 USE Com5600G05
 GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM sys.database_principals 
-    WHERE name = 'rol_AdminGeneral'
-)
-BEGIN
+--Crear roles
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'rol_AdminGeneral')
     CREATE ROLE rol_AdminGeneral;
-END
-
-IF NOT EXISTS (
-    SELECT 1 
-    FROM sys.database_principals 
-    WHERE name = 'rol_AdminBancario'
-)
-BEGIN
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'rol_AdminBancario')
     CREATE ROLE rol_AdminBancario;
-END
-
-IF NOT EXISTS (
-    SELECT 1 
-    FROM sys.database_principals 
-    WHERE name = 'rol_AdminOperativo'
-)
-BEGIN
-CREATE ROLE rol_AdminOperativo;
-END
-
-IF NOT EXISTS (
-    SELECT 1 
-    FROM sys.database_principals 
-    WHERE name = 'rol_Sistemas'
-)
-BEGIN
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'rol_AdminOperativo')
+    CREATE ROLE rol_AdminOperativo;
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'rol_Sistemas')
     CREATE ROLE rol_Sistemas;
-END
-
 
 -- Permisos sobre actualizacion de datos de UF (SP pertenece al esquema Infraestructura)
 GRANT EXECUTE ON Infraestructura.sp_ModificarUnidadFuncional TO rol_AdminGeneral;

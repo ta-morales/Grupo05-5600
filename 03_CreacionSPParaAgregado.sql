@@ -294,6 +294,7 @@ BEGIN
 END
 GO
 
+
 -- Inserta datos en Tabla Tabla Persona En UF
 CREATE OR ALTER PROCEDURE Personas.sp_AgregarPersonaEnUF
 	@dniPersona VARCHAR(9),
@@ -688,5 +689,4 @@ BEGIN
 	END CATCH
 END
 GO
-
 
