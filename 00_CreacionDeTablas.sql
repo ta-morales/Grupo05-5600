@@ -312,8 +312,7 @@ BEGIN
 
 		CONSTRAINT pk_Pagos PRIMARY KEY (id),
 		CONSTRAINT fk_Pagos_Expensa FOREIGN KEY (idExpensa) REFERENCES Gastos.Expensa(id),
-		CONSTRAINT fk_Pagos_UF FOREIGN KEY (idUF) REFERENCES Infraestructura.UnidadFuncional(id)
-
+		CONSTRAINT fk_Pagos_UF FOREIGN KEY (idUF) REFERENCES Infraestructura.UnidadFuncional(id),
 		CONSTRAINT CK_Pagos_cuentaBancaria CHECK (cuentaBancaria IS NOT NULL)
 	)
 END
