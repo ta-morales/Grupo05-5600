@@ -1,4 +1,4 @@
-/*
+﻿/*
 Enunciado: creacion de procedures para dar de alta a los
 diferentes agentes del sistema, desde consorcios hasta
 gastos.
@@ -11,7 +11,7 @@ Integrantes:
     - GATTI, Gonzalo: 46208638
     - MORALES, Tomas: 40.755.243
 
-  Nombre: 04_CreacionSPParaAgregado.sql
+  Nombre: 03_CreacionSPParaAgregado.sql
   Proposito: CREACION DE STORED PROCEDURE PARA INSERCION DE DATOS
   Script a ejecutar antes: 00_CreacionDeTablas.sql
 */
@@ -427,7 +427,7 @@ BEGIN
 
 		IF @consorcioExiste IS NULL
 		BEGIN
-			PRINT('El consorcio al cual quiere a�adir el gasto ordinario no existe');
+			PRINT('El consorcio al cual quiere añadir el gasto ordinario no existe');
 			RAISERROR('.', 16, 1);
 		END
 
@@ -624,14 +624,15 @@ BEGIN
 			 RAISERROR('.', 16, 1);
 			END
 
+			-- Si la cuenta bancaria no pertenece a ninguna persona registrada,
+			-- igualmente se permite registrar el pago (queda idUF NULL y valido=0).
 			IF NOT EXISTS (
 				SELECT 1 
 				FROM Personas.Persona 
 				WHERE cbu_cvu = @cuentaBancaria
 			)
 			BEGIN
-				PRINT('La cuenta bancaria indicada no le pertenece a ninguna persona registrada.');
-				RAISERROR('.', 16, 1);
+				PRINT('Advertencia: la cuenta bancaria indicada no pertenece a ninguna persona registrada. Se registra el pago con idUF NULL.');
 			END;
 
 			SELECT @idExpensa = id
@@ -641,11 +642,8 @@ BEGIN
 				+ CAST(YEAR(@fecha) AS VARCHAR(4)) as CHAR(6)
 			)
 
-			IF @idExpensa IS NULL
-			BEGIN
-				PRINT('La expensa para la cual proviene el pago no existe');
-				RAISERROR('.', 16, 1);
-			END
+			-- Si no existe expensa para el periodo, permitimos el alta igualmente dejando idExpensa NULL
+			-- (se podrá asociar posteriormente)
 
 			SELECT @idUF = id
 			FROM Infraestructura.UnidadFuncional
@@ -689,4 +687,3 @@ BEGIN
 	END CATCH
 END
 GO
-

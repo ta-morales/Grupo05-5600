@@ -151,7 +151,7 @@ BEGIN
         telefono VARCHAR(10) CHECK (telefono NOT LIKE '%[^0-9]%'),
         cbu_cvu CHAR(22) CHECK (cbu_cvu NOT LIKE '%[^0-9]%' AND LEN(cbu_cvu)=22),
 
-        CONSTRAINT pk_Persona PRIMARY KEY (idPersona)
+        CONSTRAINT pk_Persona PRIMARY KEY (idPersona) 
     )
 END
 
@@ -186,9 +186,9 @@ BEGIN
         fechaDesde DATE DEFAULT GETDATE() NOT NULL,
         fechaHasta DATE NULL,
 
-        CONSTRAINT pk_PersonaEnUF PRIMARY KEY (idPersonaUF),
+        CONSTRAINT pk_PersonaEnUF PRIMARY KEY (idPersonaUF) ,
 
-        CONSTRAINT fk_PersonaUF_Persona FOREIGN KEY (idPersona) REFERENCES Personas.Persona(idPersona),
+        CONSTRAINT fk_PersonaUF_Persona FOREIGN KEY (idPersona) REFERENCES Personas.Persona(idPersona) ON DELETE CASCADE,
         CONSTRAINT fk_PersonaUF_UF FOREIGN KEY (idUF) REFERENCES Infraestructura.UnidadFuncional(id),
 
         -- Coherencia temporal 
@@ -215,7 +215,7 @@ BEGIN
         primerVencimiento DATE NOT NULL,
         segundoVencimiento DATE NOT NULL,
         idConsorcio INT,
-        CONSTRAINT pk_Expensa PRIMARY KEY (id),
+        CONSTRAINT pk_Expensa PRIMARY KEY (id) ,
         CONSTRAINT fk_Expensa_Consorcio FOREIGN KEY (idConsorcio) REFERENCES Administracion.Consorcio(id),
         CONSTRAINT uq_Expensa_PeriodoConsorcio UNIQUE (periodo, idConsorcio)
     )
@@ -253,7 +253,7 @@ BEGIN
         nroCuotaAPagar INT CHECK (nroCuotaAPagar > 0),
         nroTotalCuotas INT CHECK (nroTotalCuotas > 0),
         idConsorcio INT,
-        CONSTRAINT pk_GastoExtraordinario PRIMARY KEY (id),
+        CONSTRAINT pk_GastoExtraordinario PRIMARY KEY (id) ,
         CONSTRAINT fk_GastoExtraordinario_Consorcio FOREIGN KEY (idConsorcio) REFERENCES Administracion.Consorcio(id)
     )
 END

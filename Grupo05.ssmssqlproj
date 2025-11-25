@@ -3,7 +3,21 @@
   <Items>
     <LogicalFolder Name="Conexiones" Type="2" Sorted="true">
       <Items>
-        <ConnectionNode Name="MORRONES\SQLEXPRESS:MORRONES\Morrones">
+        <ConnectionNode Name="FRANCO-AORUS\SQLEXPRESS:FRANCO-AORUS\franc">
+          <Created>2025-11-25T14:31:03.2020334-03:00</Created>
+          <Type>SQL</Type>
+          <Server>FRANCO-AORUS\SQLEXPRESS</Server>
+          <UserName />
+          <Authentication>Autenticación de Windows</Authentication>
+          <InitialDB />
+          <LoginTimeout>15</LoginTimeout>
+          <TrustServerCertificate>True</TrustServerCertificate>
+          <EncryptionOption>True</EncryptionOption>
+          <ExecutionTimeout>0</ExecutionTimeout>
+          <ConnectionProtocol>NotSpecified</ConnectionProtocol>
+          <ApplicationName>Microsoft SQL Server Management Studio - Consulta</ApplicationName>
+        </ConnectionNode>
+        <ConnectionNode Name="MORRONES\SQLEXPRESS:FRANCO-AORUS\franc">
           <Created>2025-11-12T11:33:39.70262-03:00</Created>
           <Type>SQL</Type>
           <Server>MORRONES\SQLEXPRESS</Server>
@@ -23,52 +37,76 @@
     <LogicalFolder Name="Consultas" Type="0" Sorted="true">
       <Items>
         <FileNode Name="00_CreacionDeTablas.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
           <FullPath>00_CreacionDeTablas.sql</FullPath>
         </FileNode>
         <FileNode Name="01_SPImportacionDatos.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
           <FullPath>01_SPImportacionDatos.sql</FullPath>
         </FileNode>
         <FileNode Name="02_EjecucionScripts00_01.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
           <FullPath>02_EjecucionScripts00_01.sql</FullPath>
         </FileNode>
         <FileNode Name="03_CreacionSPParaAgregado.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
           <FullPath>03_CreacionSPParaAgregado.sql</FullPath>
         </FileNode>
         <FileNode Name="03_CreacionSPParaModificado.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
           <FullPath>03_CreacionSPParaModificado.sql</FullPath>
         </FileNode>
         <FileNode Name="04_ReportesApi.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
           <FullPath>04_ReportesApi.sql</FullPath>
         </FileNode>
-        <FileNode Name="05_EjecucionScripts_04.sql">
-          <FullPath>05_EjecucionScripts_04.sql</FullPath>
-        </FileNode>
-        <FileNode Name="06_CreacionDeRoles.sql">
-          <FullPath>06_CreacionDeRoles.sql</FullPath>
-        </FileNode>
-        <FileNode Name="07_SPCifrado.sql">
-          <FullPath>07_SPCifrado.sql</FullPath>
-        </FileNode>
-        <FileNode Name="08_PruebaDeCifrado.sql">
-          <FullPath>08_PruebaDeCifrado.sql</FullPath>
-        </FileNode>
-        <FileNode Name="09_GenerarEstadoCuenta.sql">
-          <FullPath>09_GenerarEstadoCuenta.sql</FullPath>
-        </FileNode>
-        <FileNode Name="10_ModifcacionSPPostCifrado.sql">
-          <FullPath>10_ModifcacionSPPostCifrado.sql</FullPath>
-        </FileNode>
         <FileNode Name="05_CreacionDeRoles.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
           <FullPath>05_CreacionDeRoles.sql</FullPath>
         </FileNode>
         <FileNode Name="06_SPCifrado.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
           <FullPath>06_SPCifrado.sql</FullPath>
         </FileNode>
-        <FileNode Name="06_PruebaDeCifrado.sql">
-          <FullPath>06_PruebaDeCifrado.sql</FullPath>
+        <FileNode Name="07_PruebaDeCifrado.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>07_PruebaDeCifrado.sql</FullPath>
         </FileNode>
         <FileNode Name="08_Testing.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
           <FullPath>08_Testing.sql</FullPath>
+        </FileNode>
+        <FileNode Name="09_GenerarEstadoCuenta.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>09_GenerarEstadoCuenta.sql</FullPath>
+        </FileNode>
+        <FileNode Name="10_ModifcacionSPPostCifrado.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:FRANCO-AORUS\SQLEXPRESS:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>FRANCO-AORUS\SQLEXPRESS</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>10_ModifcacionSPPostCifrado.sql</FullPath>
         </FileNode>
       </Items>
     </LogicalFolder>

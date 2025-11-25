@@ -26,10 +26,10 @@ EXEC Infraestructura.sp_ModificarUnidadFuncional
     @m2Cochera = 14.00,
     @m2Baulera = 4.00;
 
--- Modificar CBU/CVU (validación: 22 dígitos)
+-- Modificar CBU/CVU (validaciÃ³n: 22 dÃ­gitos)
 EXEC Infraestructura.sp_ModificarUnidadFuncional
-    @idUF = 1,
-    @cbu_cvu = '2044613354400000000002';
+    @idUF = 137,
+    @cbu_cvu = '2044613354400000000000';
 
 -- Modificar piso/departamento (requiere que no exista duplicado en el consorcio)
 EXEC Infraestructura.sp_ModificarUnidadFuncional
@@ -37,7 +37,7 @@ EXEC Infraestructura.sp_ModificarUnidadFuncional
     @piso = '02',
     @departamento = 'B';
 
--- Modificar porcentaje de participación y reasignar a otro consorcio
+-- Modificar porcentaje de participaciÃ³n y reasignar a otro consorcio
 EXEC Infraestructura.sp_ModificarUnidadFuncional
     @idUF = 1,
     @porcentajeParticipacion = 2.50,
@@ -49,20 +49,20 @@ EXEC Infraestructura.sp_ModificarUnidadFuncional
 ====================================================================*/
 	-- Alta de Consorcio
 EXEC Administracion.sp_AgregarConsorcio 
-    @nombre = 'Consorcio Demo 5600 05',
+    @nombre = 'ConsorcioDemo',
     @direccion = 'Av. Siempre Viva 742 5600-05',
     @metrosTotales = 5000.00;
 
 -- Alta de Unidad Funcional (usar un idConsorcio existente)
 EXEC Infraestructura.sp_AgregarUnidadFuncional
     @piso = '01',
-    @departamento = 'A',
+    @departamento = 'C',
     @dimension = 55.00,
     @m2Cochera = 12.00,
     @m2Baulera = 3.00,
     @porcentajeParticipacion = 2.20,
-    @cbu_cvu = '2044613354400000000001',
-    @idConsorcio = 1;
+    @cbu_cvu = '2044613354400000000000',
+    @idConsorcio = 6;
 
 -- Alta de Persona
 EXEC Personas.sp_AgregarPersona 
@@ -73,37 +73,37 @@ EXEC Personas.sp_AgregarPersona
     @telefono=1131688005,
     @cbu_cvu=2044613354400000000000;
 
--- Alta de relación Persona en UF (propietario)
+-- Alta de relaciÃ³n Persona en UF (propietario)
 EXEC Personas.sp_AgregarPersonaEnUF
     @dniPersona = '44613354',
-    @idUF = 1,
-    @inquilino = 0,
-    @fechaDesde = '2025-01-01',
+    @idUF = 138,
+    @inquilino = 1,
+    @fechaDesde = '2025-11-07',
     @fechaHasta = NULL;
 
 -- Alta de Gasto Ordinario
 EXEC Gastos.AgregarGastoOrdinario
-    @mes = 3,
+    @mes = 11,
     @tipoGasto = 'Limpieza',
     @empresaPersona = 'Limpieza S.A.',
-    @nroFactura = 'FAC-0001',
+    @nroFactura = '1237',
     @importeFactura = 150000.00,
-    @detalle = '',
-    @idConsorcio = 1;
+    @detalle = ' ',
+    @idConsorcio = 6;
 
 -- Alta de Gasto Extraordinario
 EXEC Gastos.sp_AgregarGastoExtraordinario
-    @mes = 3,
-    @detalle = 'Reparación de ascensor',
+    @mes = 11,
+    @detalle = 'Reparacion de espejos',
     @importe = 800000.00,
-    @formaPago = 'Cuotas',
-    @nroCuotaAPagar = 1,
-    @nroTotalCuotas = 8,
-    @idConsorcio = 1;
+    @formaPago = 'Total',
+    @nroCuotaAPagar = '',
+    @nroTotalCuotas = '',
+    @idConsorcio = 6;
 
--- Alta de Pago (requiere que exista expensa del período indicado)
+-- Alta de Pago (requiere que exista expensa del perÃ­odo indicado)
 EXEC Finanzas.sp_AgregarPago
-    @fecha = '2025-03-05',
+    @fecha = '2025-11-15',
     @monto = 60000.00,
     @cuentaBancaria = '2044613354400000000000';
 
@@ -135,7 +135,7 @@ GROUP BY idConsorcio, mes
 SELECT * FROM Gastos.Expensa
 
 SELECT * FROM Gastos.DetalleExpensa
-order by idUF, idExpensa
+order by idExpensa
 
 SELECT * FROM Gastos.EnvioExpensa
 
@@ -174,6 +174,7 @@ DECLARE @ruta VARCHAR(200) = 'C:\SQL_SERVER_IMPORTS'
 EXEC LogicaBD.sp_ImportarPagos
   @rutaArchivo = @ruta,
   @nombreArchivo = 'pagos_consorcios.csv';
+
 
 
 

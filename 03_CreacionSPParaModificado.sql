@@ -10,7 +10,7 @@ Integrantes:
     - GATTI, Gonzalo: 46208638
     - MORALES, Tomas: 40.755.243
 
-  Nombre: 04_CreacionSPParaModificado.sql
+  Nombre: 03_CreacionSPParaModificado.sql
   Proposito: Creacion de stored procedure para modificar unidades funcionales
   Script a ejecutar antes: 00_CreacionDeTablas.sql 01_SPImportacionDatos.sql
 */

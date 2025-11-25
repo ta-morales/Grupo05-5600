@@ -1,4 +1,4 @@
-/*
+ï»¿/*
 Enunciado: creacion de scripts para cifrar
 datos sensibles del sistema.
 Fecha entrega:
@@ -14,6 +14,10 @@ Nombre: 06_SPCifrado.sql
 Proposito: Cifrar datos sensibles
 Script a ejecutar antes: 00_CreacionDeTablas.sql 01_SPImportacionDatos.sql
 */
+
+/*====================================================================
+                EJECUTAR POR PARTES                     
+====================================================================*/
 
 USE master
 
@@ -140,7 +144,7 @@ END
 GO
 
 CREATE OR ALTER FUNCTION Personas.fn_DesencriptarEmail
-( @idPersona VARBINARY(MAX) )
+ ( @idPersona VARBINARY(MAX) )
 RETURNS VARCHAR(100)
 AS
 BEGIN
@@ -314,40 +318,34 @@ ON Gastos.DetalleExpensa
 AFTER INSERT
 AS
 BEGIN
-    SET NOCOUNT ON;
-    /* 
-       Por cada detalle insertado (pueden ser varios),
-       crea un registro de envío por cada persona asociada a esa UF.
-    */
-
-    INSERT INTO Gastos.EnvioExpensa
-        (metodo, email, telefono, fecha, estado, idPersona, idDetalle)
-    SELECT
-        CASE 
-            WHEN fn_DesencriptarEmail(p.idPersona) IS NOT NULL THEN 'email'
-            WHEN fn_DesencriptarTelefono(p.idPersona) IS NOT NULL THEN 'telefono'
-            ELSE 'impreso'
-        END AS metodo,
-        CASE 
-            WHEN fn_DesencriptarEmail(p.idPersona) IS NOT NULL THEN p.email
-            ELSE NULL
-        END AS email,
-        CASE 
-            WHEN fn_DesencriptarTelefono(p.idPersona) IS NOT NULL THEN p.telefono
-            ELSE NULL
-        END AS telefono,
-        DATEADD(DAY, -5, ex.primerVencimiento) AS fecha,
-        'D' AS estado,                         
-        p.idPersona,
-        i.id AS idDetalle
-    FROM inserted i
-    INNER JOIN Personas.PersonaEnUF pe
-        ON pe.idUF = i.idUF
-    INNER JOIN Personas.Persona p
-        ON p.idPersona = pe.idPersona
-	INNER JOIN Gastos.Expensa ex
-		ON ex.id = i.idExpensa
-END;
+SET NOCOUNT ON;
+INSERT INTO Gastos.EnvioExpensa
+	  (metodo, email, telefono, fecha, estado, idPersona, idDetalle)
+SELECT
+	CASE
+	  WHEN Personas.fn_DesencriptarEmail(p.idPersona)    IS NOT NULL THEN 'email'
+	  WHEN Personas.fn_DesencriptarTelefono(p.idPersona) IS NOT NULL THEN 'telefono'
+	  ELSE 'impreso'
+	END AS metodo,
+	CASE
+	  WHEN Personas.fn_DesencriptarEmail(p.idPersona) IS NOT NULL
+	  THEN Personas.fn_DesencriptarEmail(p.idPersona)
+	  ELSE NULL
+	END AS email,
+	CASE
+	  WHEN Personas.fn_DesencriptarTelefono(p.idPersona) IS NOT NULL
+	  THEN Personas.fn_DesencriptarTelefono(p.idPersona)
+	  ELSE NULL
+	END AS telefono,
+	  DATEADD(DAY, -5, ex.primerVencimiento) AS fecha,
+	  'D' AS estado,
+	  p.idPersona,
+	  i.id AS idDetalle
+	  FROM inserted i
+	  INNER JOIN Personas.PersonaEnUF pe ON pe.idUF = i.idUF
+	  INNER JOIN Personas.Persona     p  ON p.idPersona = pe.idPersona
+	  INNER JOIN Gastos.Expensa       ex ON ex.id = i.idExpensa;
+	END
 GO
 
 -- Cifrar tabla de pagos (solo cuenta bancaria)
@@ -450,4 +448,3 @@ BEGIN
 	RETURN @valorTabla
 END
 GO
-

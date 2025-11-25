@@ -1,4 +1,4 @@
-
+﻿
 /*
 Enunciado: creacion de procedures, funciones y triggers para importar 
 los archivos maestros, normalizar los datos e insertar los mismos en
@@ -217,7 +217,7 @@ AS
 BEGIN
     DECLARE @fechaFinal DATE = @fecha;
 
-    -- Avanza hasta el próximo día hábil (no fin de semana ni feriado)
+    -- Avanza hasta el prÃ³ximo dÃ­a hÃ¡bil (no fin de semana ni feriado)
     WHILE (LogicaBD.fn_EsFeriado(@fechaFinal) = 1)
           OR (DATEPART(WEEKDAY, @fechaFinal) IN (1,7))
     BEGIN
@@ -297,7 +297,7 @@ BEGIN
     SET NOCOUNT ON;
     /* 
        Por cada detalle insertado (pueden ser varios),
-       crea un registro de envío por cada persona asociada a esa UF.
+       crea un registro de envÃ­o por cada persona asociada a esa UF.
     */
 
     INSERT INTO Gastos.EnvioExpensa
@@ -372,7 +372,7 @@ BEGIN
     EXEC sp_executesql @sql;
 
    
-    -- Limpieza básica
+    -- Limpieza bÃ¡sica
     UPDATE #ConsorciosStage
     SET nombre        = LTRIM(RTRIM(nombre)),
         domicilio     = LTRIM(RTRIM(domicilio)),
@@ -381,7 +381,7 @@ BEGIN
     DELETE FROM #ConsorciosStage
     WHERE nombre IS NULL OR domicilio IS NULL OR metrosTotales IS NULL OR TRY_CONVERT(INT, cantidadUF) < 10;
 
-    -- Conversión y carga
+    -- ConversiÃ³n y carga
     INSERT INTO Administracion.Consorcio (nombre, direccion, metrosTotales)
     SELECT 
         LEFT(s.nombre, 100),
@@ -488,8 +488,8 @@ BEGIN
 	CAST(t.piso AS CHAR(2)) AS piso,
 	CAST(t.dpto AS CHAR(1)) AS departamento,
 	CAST(t.m2UF AS DECIMAL(5,2)) AS dimension,
-	CASE WHEN UPPER(t.cochera) IN ('SI', 'SÍ') THEN CAST(LogicaNormalizacion.fn_ToDecimal(t.m2Cochera) AS DECIMAL(5,2)) ELSE 0 END,
-	CASE WHEN UPPER(t.baulera) IN ('SI', 'SÍ') THEN CAST(LogicaNormalizacion.fn_ToDecimal(t.m2Baulera) AS DECIMAL(5,2)) ELSE 0 END,
+	CASE WHEN UPPER(t.cochera) IN ('SI', 'SÃ') THEN CAST(LogicaNormalizacion.fn_ToDecimal(t.m2Cochera) AS DECIMAL(5,2)) ELSE 0 END,
+	CASE WHEN UPPER(t.baulera) IN ('SI', 'SÃ') THEN CAST(LogicaNormalizacion.fn_ToDecimal(t.m2Baulera) AS DECIMAL(5,2)) ELSE 0 END,
 	CAST(LogicaNormalizacion.fn_ToDecimal(t.coeficiente) AS DECIMAL(4,2)) AS porcentajeParticipacion,
 	c.id
 	FROM #temporalUF t
@@ -658,7 +658,7 @@ BEGIN
 	  AND NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.cbu_cvu = S.cvu)
 	  AND (S.email IS NULL OR NOT EXISTS (SELECT 1 FROM Personas.Persona T WHERE T.email = LOWER(LTRIM(RTRIM(S.email)))));
 
-    -- Materializamos los potenciales nuevos vínculos para reutilizarlos en múltiples sentencias
+    -- Materializamos los potenciales nuevos vÃ­nculos para reutilizarlos en mÃºltiples sentencias
     IF OBJECT_ID('tempdb..#Nuevos') IS NOT NULL DROP TABLE #Nuevos;
     CREATE TABLE #Nuevos(
       idPersona INT,
@@ -688,7 +688,7 @@ BEGIN
     WHERE pe.fechaHasta IS NULL
       AND pe.idPersona <> n.idPersona;
 
-    -- Insertar solo si esa misma persona no está activa en ese rol/UF
+    -- Insertar solo si esa misma persona no estÃ¡ activa en ese rol/UF
     INSERT INTO Personas.PersonaEnUF (idPersona, idUF, inquilino, fechaDesde, fechaHasta)
     SELECT n.idPersona, n.idUF, n.inquilino, CAST(GETDATE() AS DATE), NULL
     FROM #Nuevos n
@@ -1144,7 +1144,7 @@ BEGIN
         FROM Gastos.GastoExtraordinario
         GROUP BY mes, idConsorcio
     ),
-    U AS (  -- Unión por mes/consorcio
+    U AS (  -- UniÃ³n por mes/consorcio
         SELECT 
             COALESCE(O.mes, E.mes) AS mes,
             COALESCE(O.idConsorcio, E.idConsorcio) AS idConsorcio,
@@ -1198,6 +1198,7 @@ GO
 
 
 CREATE OR ALTER PROCEDURE LogicaBD.sp_GenerarDetalles
+    @mes INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -1208,8 +1209,20 @@ BEGIN
     DECLARE @tasa_venc1 DECIMAL(10,6) = 0.02;  -- 2%
 	DECLARE @tasa_venc2 DECIMAL(10,6) = 0.05;  -- 5%
 
+    -- Si se pasa @mes, calcular el periodo MMYYYY actual y validar el rango
+    DECLARE @periodoMes CHAR(6) = NULL;
+    IF @mes IS NOT NULL
+    BEGIN
+        IF @mes < 1 OR @mes > 12
+        BEGIN
+            RAISERROR('Parametro @mes invalido. Debe estar entre 1 y 12.', 16, 1);
+            RETURN;
+        END
+        SET @periodoMes = RIGHT('0' + CAST(@mes AS VARCHAR(2)), 2) + CAST(YEAR(GETDATE()) AS VARCHAR(4));
+    END
 
-    	WITH cteDeudaAPrimerVenc AS
+
+	;WITH cteDeudaAPrimerVenc AS
     	(
     		SELECT 
     			uf.id as [ID UF], 
@@ -1234,6 +1247,7 @@ BEGIN
             ON ex.idConsorcio = uf.idConsorcio
         INNER JOIN Administracion.Consorcio con
             ON con.id = uf.idConsorcio
+		WHERE (@periodoMes IS NULL OR ex.periodo = @periodoMes)
 	),
 	cteDeudaASegVenc AS		
 	(
@@ -1357,3 +1371,87 @@ BEGIN
 
 END
 GO
+
+CREATE OR ALTER PROCEDURE LogicaBD.sp_GenerarExpensaPorMes
+( @mes INT )
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    -- Validacion basica del parametro de mes
+    IF @mes < 1 OR @mes > 12
+    BEGIN
+        RAISERROR('Parametro @mes invalido. Debe estar entre 1 y 12.', 16, 1);
+        RETURN;
+    END
+
+	;WITH O AS (
+        SELECT mes, idConsorcio, SUM(importeFactura) AS SumaOrd
+        FROM Gastos.GastoOrdinario
+        WHERE mes = @mes
+        GROUP BY mes, idConsorcio
+    ),
+    E AS (
+        SELECT mes, idConsorcio, SUM(importe) AS SumaExtra
+        FROM Gastos.GastoExtraordinario
+        WHERE mes = @mes
+        GROUP BY mes, idConsorcio
+    ),
+    U AS (  -- UniÃƒÂ³n por mes/consorcio
+        SELECT 
+            COALESCE(O.mes, E.mes) AS mes,
+            COALESCE(O.idConsorcio, E.idConsorcio) AS idConsorcio,
+            ISNULL(O.SumaOrd, 0) AS SumaOrd,
+            ISNULL(E.SumaExtra, 0) AS SumaExtra
+        FROM O
+        FULL JOIN E
+          ON O.mes = E.mes AND O.idConsorcio = E.idConsorcio
+    )
+
+	INSERT INTO Gastos.Expensa 
+        (periodo, totalGastoOrdinario, totalGastoExtraordinario, primerVencimiento, segundoVencimiento, idConsorcio)
+    SELECT 
+        CONCAT(RIGHT('0' + CAST(U.mes AS VARCHAR(2)), 2), CAST(YEAR(GETDATE()) AS VARCHAR(4))) AS Periodo,
+        U.SumaOrd,
+        U.SumaExtra,
+        DATEFROMPARTS(YEAR(GETDATE()), U.mes, 10) AS PrimerV,
+        DATEFROMPARTS(YEAR(GETDATE()), U.mes, 15) AS SegundoV,
+        U.idConsorcio
+    FROM U
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM Gastos.Expensa ex
+        WHERE ex.periodo = CONCAT(RIGHT('0' + CAST(U.mes AS VARCHAR(2)), 2), CAST(YEAR(GETDATE()) AS VARCHAR(4)))
+          AND ex.idConsorcio = U.idConsorcio
+    );
+
+    
+    WITH cteFechasVenc AS
+    (
+        SELECT 
+            id,
+            LogicaBD.fn_ObtenerFechaVencimiento(primerVencimiento) as [PrimerVenc],
+            LogicaBD.fn_ObtenerFechaVencimiento(segundoVencimiento) as [SegundoVenc]
+        FROM (
+            SELECT DISTINCT
+                id,
+                primerVencimiento,
+                segundoVencimiento
+            FROM Gastos.Expensa
+        ) AS sub1
+    )
+    UPDATE ex
+    SET
+        primerVencimiento = PrimerVenc,
+        segundoVencimiento = SegundoVenc
+    FROM Gastos.Expensa as ex INNER JOIN cteFechasVenc as cte 
+        ON ex.id = cte.id
+END
+GO
+
+
+
+
+
+
+

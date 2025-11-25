@@ -43,6 +43,8 @@ EXEC LogicaBD.sp_ImportarGastosOrdinarios
 
 EXEC LogicaBD.sp_GenerarExpensa;
 
+EXEC LogicaBD.sp_GenerarExpensaPorMes @mes = 11
+
 EXEC LogicaBD.sp_ImportarPagos
   @rutaArchivo = @ruta,
   @nombreArchivo = 'pagos_consorcios.csv';
